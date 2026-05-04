@@ -19,6 +19,15 @@ agentctl rm -f coder-<suffix>
 
 `network` commands are intentionally not implemented yet; that surface is planned separately.
 
+## Documentation
+
+The MkDocs source lives in [docs](docs/index.md), with [mkdocs.yml](mkdocs.yml) defining the navigation. Start with:
+
+- [Quickstart](docs/quickstart.md) for the current local runtime flow.
+- [Implemented Commands](docs/reference/commands.md) for the CLI surface available today.
+- [Target API](docs/reference/target-api.md) for the planned Docker-like agentic API.
+- [What Is Next](docs/roadmap/todo.md) for the implementation roadmap.
+
 ## Install
 
 Release assets are published for Windows, macOS, Linux tarballs, Debian/Ubuntu `.deb`, and RHEL/Fedora `.rpm` on x64 and ARM64.

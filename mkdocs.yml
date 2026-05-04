@@ -1,0 +1,37 @@
+site_name: agentctl
+site_description: Docker-style control-plane CLI for AI agents, planning loops, tools, RAG, and memory.
+repo_name: invariantcontinuum/agentctl
+repo_url: https://github.com/invariantcontinuum/agentctl
+edit_uri: edit/main/docs/
+
+theme:
+  name: mkdocs
+
+nav:
+  - Introduction: index.md
+  - Getting Started:
+      - Install: install.md
+      - Quickstart: quickstart.md
+      - Configuration: configuration.md
+  - Usage:
+      - Current CLI: usage.md
+      - Agentfile: agentfile.md
+      - Models: models.md
+  - Concepts:
+      - Capability Taxonomy: concepts/taxonomy.md
+      - Agentic Visibility: concepts/agentic-visibility.md
+      - Architecture: concepts/architecture.md
+  - Reference:
+      - Implemented Commands: reference/commands.md
+      - Target API: reference/target-api.md
+  - Roadmap:
+      - What Exists Now: roadmap/implemented.md
+      - What Is Next: roadmap/todo.md
+  - Troubleshooting: troubleshooting.md
+  - FAQ: faq.md
+
+markdown_extensions:
+  - toc:
+      permalink: true
+  - tables
+  - fenced_code
