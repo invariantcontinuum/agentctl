@@ -1,0 +1,27 @@
+# Sample Agentfile for a local planner agent.
+#
+# This intentionally uses a local process so the first agentctl driver can be
+# built and tested with only the Go standard library.
+
+AGENT planner-local
+TYPE planner
+
+SKILL ./skills/planner.md
+
+MCP search http://localhost:9001/mcp
+MCP code http://localhost:9002/mcp
+
+VECTOR docs pgvector postgres://agentctl:agentctl@localhost:5432/agentctl?sslmode=disable docs_chunks
+GRAPH tasks neo4j bolt://localhost:7687
+
+MEMORY session short window=12000
+MEMORY plans vector docs
+
+LOOP react max_steps=30
+
+ENDPOINT http http://127.0.0.1:8088
+
+ENV AGENTCTL_LOG_LEVEL=info
+LABEL owner=platform
+
+EXEC ["sh", "-c", "echo planner-local started; trap 'exit 0' TERM INT; while true; do sleep 60; done"]
