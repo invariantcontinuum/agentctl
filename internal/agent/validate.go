@@ -49,8 +49,19 @@ func (ConfigValidator) Validate(config Config) error {
 		if server.Name == "" {
 			problems = append(problems, "MCP server name is required")
 		}
-		if !validURL(server.URL) {
-			problems = append(problems, fmt.Sprintf("MCP %q URL is invalid", server.Name))
+		switch server.Transport {
+		case MCPTransportHTTP:
+			if !validURL(server.URL) {
+				problems = append(problems, fmt.Sprintf("MCP %q URL is invalid", server.Name))
+			}
+		case MCPTransportStdio:
+			if strings.TrimSpace(server.Command) == "" {
+				problems = append(problems, fmt.Sprintf("MCP %q stdio command is required", server.Name))
+			}
+		case "":
+			problems = append(problems, fmt.Sprintf("MCP %q transport is required (http or stdio)", server.Name))
+		default:
+			problems = append(problems, fmt.Sprintf("MCP %q unknown transport %q", server.Name, server.Transport))
 		}
 	}
 	for _, endpoint := range config.Endpoints {

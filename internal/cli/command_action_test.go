@@ -49,7 +49,7 @@ func TestToolMCPListsDiscoveredTools(t *testing.T) {
 		Config: agent.Config{
 			Name:       "coder",
 			Type:       "coder",
-			MCPServers: []agent.MCPServer{{Name: "search", URL: "http://localhost:9001/mcp"}},
+			MCPServers: []agent.MCPServer{{Name: "search", Transport: agent.MCPTransportHTTP, URL: "http://localhost:9001/mcp"}},
 			Loop:       agent.Loop{Strategy: "react", MaxSteps: 1},
 			Exec:       []string{"sleep", "1"},
 		},
@@ -75,10 +75,10 @@ func TestToolMCPListsDiscoveredTools(t *testing.T) {
 		t.Fatalf("exitCode = %d, stderr = %s", exitCode, errOut.String())
 	}
 	output := out.String()
-	if !strings.Contains(output, "search\thttp://localhost:9001/mcp\tcode\t") {
+	if !strings.Contains(output, "search\thttp\thttp://localhost:9001/mcp\tcode\t") {
 		t.Fatalf("output missing code tool: %s", output)
 	}
-	if !strings.Contains(output, "search\thttp://localhost:9001/mcp\tweb\t") {
+	if !strings.Contains(output, "search\thttp\thttp://localhost:9001/mcp\tweb\t") {
 		t.Fatalf("output missing web tool: %s", output)
 	}
 }
@@ -97,7 +97,7 @@ func TestToolExecCallsMCPAndTraces(t *testing.T) {
 		Config: agent.Config{
 			Name:       "coder",
 			Type:       "coder",
-			MCPServers: []agent.MCPServer{{Name: "search", URL: "http://localhost:9001/mcp"}},
+			MCPServers: []agent.MCPServer{{Name: "search", Transport: agent.MCPTransportHTTP, URL: "http://localhost:9001/mcp"}},
 			Loop:       agent.Loop{Strategy: "react", MaxSteps: 1},
 			Exec:       []string{"sleep", "1"},
 		},
@@ -179,7 +179,7 @@ func TestToolExecPropagatesMCPError(t *testing.T) {
 		Config: agent.Config{
 			Name:       "coder",
 			Type:       "coder",
-			MCPServers: []agent.MCPServer{{Name: "search", URL: "http://localhost:9001/mcp"}},
+			MCPServers: []agent.MCPServer{{Name: "search", Transport: agent.MCPTransportHTTP, URL: "http://localhost:9001/mcp"}},
 			Loop:       agent.Loop{Strategy: "react", MaxSteps: 1},
 			Exec:       []string{"sleep", "1"},
 		},

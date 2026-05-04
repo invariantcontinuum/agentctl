@@ -1,15 +1,15 @@
 # What Is Next
 
-This page tracks planned work. It should be updated whenever implementation
-lands.
-
 ## High Priority
 
-- Live runtime status integration: have `loop ps` query the agent's `/status`
-  endpoint instead of only printing recorded configuration.
+- `agentctl session` group mirroring the Anthropic Agent SDK and OpenAI
+  Agents SDK session shapes (resume, fork, dump, list).
+- Live `loop ps` integration with the agent's `/status` endpoint.
 - Promote `health` reports into `describe` output when an ENDPOINT is set.
-- `model` provider config files on disk and provider inspection.
-- Stream traces (`agentctl trace -f <id>`) instead of single-shot dump.
+- Stream traces and logs (`agentctl trace -f <id>`, `agentctl logs -f <id>`).
+- Auto-inject `credential_env` API keys from the credentials store into the
+  agent's runtime environment on `run` (today the operator wires them via
+  shell exports).
 
 ## Knowledge
 
@@ -21,11 +21,11 @@ lands.
 
 - Tool latency histograms via `tool trace <agent>`.
 - Tool result schema validation against MCP `inputSchema`.
+- Bedrock / Vertex / Foundry credential helpers (agent SDK switches).
 
 ## Persistence
 
-- Live runtime memory inspection via the agent runtime contract; today's
-  `memory dump`/`recall` only return configured bindings.
+- Live runtime memory inspection via the agent runtime contract.
 
 ## Control
 

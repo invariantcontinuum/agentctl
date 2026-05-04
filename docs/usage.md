@@ -1,13 +1,11 @@
 # Current CLI Usage
 
-This page documents what is implemented today.
-
 ## Lifecycle
 
 ```bash
 agentctl run [-f Agentfile] [--dry-run] [--rm] [--name name] [--workdir dir] [image]
 agentctl ps [-a] [-q] [-aq]
-agentctl logs <agent-id>
+agentctl logs [--level debug|info|warn|error] [--json] <agent-id>
 agentctl trace [--json] <agent-id>
 agentctl inspect <agent-id>
 agentctl describe <agent-id>
@@ -35,23 +33,35 @@ agentctl tool exec [--server NAME] [--args JSON] <agent-id> <tool>
 agentctl exec [--server NAME] [--args JSON] <agent-id> <tool>
 ```
 
+## Models and Auth
+
+```bash
+agentctl model ls
+agentctl model anthropic auth login                              # interactive
+agentctl model openai    auth login --api-key sk-... --no-interactive
+agentctl model vllm      auth login --endpoint http://localhost:8000/v1
+agentctl model anthropic auth status
+agentctl model anthropic auth logout
+agentctl model auth ls
+```
+
 ## Knowledge / Persistence / Control
 
 ```bash
-agentctl rag ls <agent-id>
-agentctl rag vector ls <agent-id>
-agentctl rag graph ls <agent-id>
+agentctl rag    ls <agent-id>
+agentctl rag    vector ls <agent-id>
+agentctl rag    graph  ls <agent-id>
 
 agentctl memory ls <agent-id>
 agentctl memory short ls <agent-id>
-agentctl memory long ls <agent-id>
-agentctl memory dump <agent-id>
+agentctl memory long  ls <agent-id>
+agentctl memory dump  <agent-id>
 agentctl memory recall <agent-id> <key>
 
-agentctl loop ls
-agentctl loop ps <agent-id>
-agentctl loop trace <agent-id>
-agentctl guard ls <agent-id>
+agentctl loop  ls
+agentctl loop  ps     <agent-id>
+agentctl loop  trace  <agent-id>
+agentctl guard ls     <agent-id>
 ```
 
 ## Health
@@ -88,6 +98,7 @@ agentctl rag run "query"
 agentctl rag trace <id>
 agentctl tool trace <agent>
 agentctl stats
+agentctl session ls / fork / resume     # mapped from Anthropic/OpenAI agent SDKs
 ```
 
 `network` commands are intentionally omitted until the network model is

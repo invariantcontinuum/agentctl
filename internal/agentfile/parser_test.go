@@ -12,7 +12,8 @@ IMAGE planner:latest
 TYPE planner
 MODEL openai default endpoint=https://api.openai.com/v1 auth=api_key credential_env=OPENAI_API_KEY
 SKILL ./skills/planner.md
-MCP search http://localhost:9001/mcp
+MCP search http http://localhost:9001/mcp
+MCP fs stdio npx -y @modelcontextprotocol/server-filesystem /tmp
 VECTOR docs pgvector postgres://localhost:5432/agentctl docs_chunks
 GRAPH tasks neo4j bolt://localhost:7687
 MEMORY session short window=12000
@@ -48,6 +49,18 @@ EXEC ["sh", "-c", "echo # not a comment"]
 	}
 	if got := config.MCPServers[0].Name; got != "search" {
 		t.Fatalf("MCP name = %q, want search", got)
+	}
+	if got := config.MCPServers[0].Transport; got != "http" {
+		t.Fatalf("MCP[0] Transport = %q, want http", got)
+	}
+	if got := config.MCPServers[1].Transport; got != "stdio" {
+		t.Fatalf("MCP[1] Transport = %q, want stdio", got)
+	}
+	if got := config.MCPServers[1].Command; got != "npx" {
+		t.Fatalf("MCP[1] Command = %q, want npx", got)
+	}
+	if got := strings.Join(config.MCPServers[1].Args, " "); got != "-y @modelcontextprotocol/server-filesystem /tmp" {
+		t.Fatalf("MCP[1] Args = %q, want -y @modelcontextprotocol/server-filesystem /tmp", got)
 	}
 	if got := config.VectorStores[0].Collection; got != "docs_chunks" {
 		t.Fatalf("Vector collection = %q, want docs_chunks", got)

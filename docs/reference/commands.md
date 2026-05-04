@@ -4,10 +4,10 @@
 
 | Command | Purpose |
 | --- | --- |
-| `run` | Start an agent from an `Agentfile` or role image. |
+| `run` | Start an agent from an `Agentfile` (with optional `FROM`) or role image. |
 | `ps` | List running agents by default; `-a` includes stopped agents; `-q` prints IDs only. |
-| `logs <id>` | Print local process log file. |
-| `trace <id>` | Print structured JSON-Lines trace events; `--json` keeps the raw payload. |
+| `logs [--level L] [--json] <id>` | Print the agent log file. JSON-Lines records are filtered by level (debug/info/warn/error); non-JSON lines surface as info. |
+| `trace [--json] <id>` | Print structured JSON-Lines trace events; `--json` keeps the raw payload. |
 | `inspect <id>` | Print JSON state. |
 | `describe <id>` | Print human-readable state. |
 | `stop <id>` / `start <id>` / `restart <id>` | Process lifecycle. |
@@ -26,8 +26,8 @@
 
 | Command | Purpose |
 | --- | --- |
-| `tool ls <id>` | List configured MCP servers for an agent. |
-| `tool mcp ls <id>` | Discover tool schemas via `tools/list` against each MCP server. |
+| `tool ls <id>` | List configured MCP servers (transport + URL or command). |
+| `tool mcp ls <id>` | Discover tool schemas via `tools/list` against each MCP server (http or stdio). |
 | `tool exec [--server NAME] [--args JSON] <id> <tool>` | Invoke `tools/call` on the chosen MCP server. |
 | `exec [--server NAME] [--args JSON] <id> <tool>` | Top-level alias for `tool exec`. |
 
@@ -64,6 +64,16 @@
 | --- | --- |
 | `health [--url URL] [--json] <id>` | Probe `/health`, `/status`, `/tasks`; record a `health` trace event. |
 
+## Models and Auth
+
+| Command | Purpose |
+| --- | --- |
+| `model ls` / `models ls` | List model provider definitions and a LOGGED IN column. |
+| `model <provider> auth login [--api-key K] [--endpoint U] [--no-interactive]` | Persist credentials for a provider. |
+| `model <provider> auth logout` | Remove credentials for a provider. |
+| `model <provider> auth status` | Show whether the provider is logged in (key masked). |
+| `model auth ls` | List every logged-in provider. |
+
 ## Management Aliases
 
 | Command | Purpose |
@@ -79,19 +89,21 @@
 
 ```bash
 agentctl run --rm coder:latest
+agentctl run -f examples/from-base/Agentfile          # FROM inheritance
 agentctl ps -aq
-agentctl agent ls
-agentctl model ls
-agentctl describe coder-<suffix>
-agentctl rm -f coder-<suffix>
 
-agentctl compose up -f examples/team/AgentCompose
-agentctl compose ps -f examples/team/AgentCompose
+agentctl model anthropic auth login
+agentctl model openai    auth login --api-key sk-... --no-interactive
+agentctl model ls
+
+agentctl compose up   -f examples/team/AgentCompose
+agentctl compose ps   -f examples/team/AgentCompose
 agentctl compose down -f examples/team/AgentCompose
 
 agentctl tool mcp ls coder-<suffix>
 agentctl exec --args '{"q":"agents"}' coder-<suffix> search
 
 agentctl health planner-<suffix>
+agentctl logs --level warn planner-<suffix>
 agentctl trace planner-<suffix>
 ```

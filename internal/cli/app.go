@@ -18,8 +18,10 @@ import (
 	"github.com/invariantcontinuum/agentctl/internal/agentfile"
 	"github.com/invariantcontinuum/agentctl/internal/catalog"
 	"github.com/invariantcontinuum/agentctl/internal/compose"
+	"github.com/invariantcontinuum/agentctl/internal/credentials"
 	"github.com/invariantcontinuum/agentctl/internal/driver"
 	"github.com/invariantcontinuum/agentctl/internal/health"
+	"github.com/invariantcontinuum/agentctl/internal/logging"
 	"github.com/invariantcontinuum/agentctl/internal/mcp"
 	"github.com/invariantcontinuum/agentctl/internal/model"
 	"github.com/invariantcontinuum/agentctl/internal/store"
@@ -29,6 +31,7 @@ import (
 type App struct {
 	out            io.Writer
 	errOut         io.Writer
+	stdin          io.Reader
 	parser         agentfile.Parser
 	composeParser  compose.Parser
 	validator      agent.Validator
@@ -36,6 +39,7 @@ type App struct {
 	driver         driver.Driver
 	images         catalog.Catalog
 	models         model.Catalog
+	credentials    credentials.Store
 	now            func() time.Time
 	paths          func(string) (string, string, error)
 	healthProbeFor func(string) *health.Probe
@@ -53,11 +57,23 @@ func New(out io.Writer, errOut io.Writer, repo store.Repository, runtimeDriver d
 		driver:         runtimeDriver,
 		images:         catalog.DefaultCatalog(),
 		models:         model.DefaultCatalog(),
+		credentials:    defaultCredentials(),
 		now:            time.Now,
 		paths:          runtimePaths,
 		healthProbeFor: func(string) *health.Probe { return health.NewProbe(5*time.Second, 0) },
 		mcpClientFor:   func(string) *mcp.Client { return mcp.NewClient(10 * time.Second) },
 	}
+}
+
+// defaultCredentials returns the file-backed Store. If the XDG path can't be
+// resolved (very unusual: read-only HOME), we fall back to an in-memory map
+// implemented as a no-op JSONStore at /dev/null so the CLI still loads.
+func defaultCredentials() credentials.Store {
+	path, err := credentials.DefaultPath()
+	if err != nil {
+		return credentials.NewJSONStore("")
+	}
+	return credentials.NewJSONStore(path)
 }
 
 func (a *App) Run(ctx context.Context, args []string) int {
@@ -134,7 +150,7 @@ func (a *App) printHelp() {
 	fmt.Fprintln(a.out, "Lifecycle:")
 	fmt.Fprintln(a.out, "  run          Start an agent from an Agentfile or image")
 	fmt.Fprintln(a.out, "  ps           List agents")
-	fmt.Fprintln(a.out, "  logs         Print an agent log")
+	fmt.Fprintln(a.out, "  logs         Print an agent log (--level debug|info|warn|error)")
 	fmt.Fprintln(a.out, "  rm           Remove stopped agent state")
 	fmt.Fprintln(a.out, "  stop         Stop an agent process")
 	fmt.Fprintln(a.out, "  start        Start a stopped agent")
@@ -330,7 +346,14 @@ func (a *App) instanceStatus(ctx context.Context, instance store.Instance) (stri
 }
 
 func (a *App) logs(args []string) error {
-	id, err := requiredID("logs", args)
+	flags := flag.NewFlagSet("logs", flag.ContinueOnError)
+	flags.SetOutput(a.errOut)
+	level := flags.String("level", "", "minimum log level (debug|info|warn|error)")
+	jsonOutput := flags.Bool("json", false, "emit raw JSON-Lines log records")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	id, err := requiredID("logs", flags.Args())
 	if err != nil {
 		return err
 	}
@@ -341,7 +364,11 @@ func (a *App) logs(args []string) error {
 	if instance.LogPath == "" {
 		return fmt.Errorf("agent %s has no log path", id)
 	}
-	return printFile(a.out, instance.LogPath)
+	min, err := logging.ParseLevel(*level)
+	if err != nil {
+		return err
+	}
+	return logging.FilterFile(a.out, instance.LogPath, min, *jsonOutput)
 }
 
 func (a *App) stopAgent(ctx context.Context, args []string) error {
@@ -556,13 +583,63 @@ func (a *App) agents(ctx context.Context, args []string) error {
 }
 
 func (a *App) modelsCommand(args []string) error {
-	if len(args) == 0 || args[0] == "ls" {
-		if len(args) > 1 {
-			return fmt.Errorf("models ls does not accept positional arguments")
-		}
-		return a.models.WriteTable(a.out)
+	if len(args) == 0 {
+		return a.modelTable()
 	}
-	return fmt.Errorf("unknown models command %q", args[0])
+	switch args[0] {
+	case "ls":
+		if len(args) > 1 {
+			return fmt.Errorf("model ls does not accept positional arguments")
+		}
+		return a.modelTable()
+	case "auth":
+		// `model auth ls` lists every logged-in provider regardless of which
+		// catalog row it came from.
+		if len(args) >= 2 && args[1] == "ls" {
+			return a.modelAuthList()
+		}
+		return fmt.Errorf("usage: agentctl model auth ls")
+	}
+	// Anything that isn't `ls` or `auth` is treated as a provider name so we
+	// can route `model anthropic auth login`, `model openai auth status`, etc.
+	provider := args[0]
+	if a.models.Default(provider).Ref == "" {
+		return fmt.Errorf("unknown model provider %q (try: agentctl model ls)", provider)
+	}
+	return a.modelProvider(provider, args[1:])
+}
+
+// modelTable renders the catalog plus a "LOGGED IN" column derived from the
+// credentials store so an operator can see at a glance which providers are
+// ready to use.
+func (a *App) modelTable() error {
+	loggedIn := map[string]bool{}
+	if names, err := a.credentials.List(); err == nil {
+		for _, name := range names {
+			loggedIn[name] = true
+		}
+	}
+
+	if _, err := fmt.Fprintf(a.out, "%-20s %-8s %-12s %-16s %-18s %-32s %s\n",
+		"REF", "KIND", "RUNTIME", "AUTH", "CREDENTIAL", "ENDPOINT", "LOGGED IN"); err != nil {
+		return err
+	}
+	for _, provider := range a.models.List() {
+		credential := provider.CredentialEnv
+		if credential == "" {
+			credential = "-"
+		}
+		short := strings.SplitN(provider.Ref, ":", 2)[0]
+		mark := "-"
+		if loggedIn[short] {
+			mark = "yes"
+		}
+		if _, err := fmt.Fprintf(a.out, "%-20s %-8s %-12s %-16s %-18s %-32s %s\n",
+			provider.Ref, provider.Kind, provider.Runtime, provider.Auth, credential, provider.Endpoint, mark); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (a *App) skills(args []string) error {
@@ -604,7 +681,7 @@ func (a *App) listTools(args []string) error {
 	}
 
 	for _, server := range instance.Config.MCPServers {
-		fmt.Fprintf(a.out, "%s\t%s\n", server.Name, server.URL)
+		fmt.Fprintf(a.out, "%s\t%s\t%s\n", server.Name, server.Transport, mcpServerSummary(server))
 	}
 	return nil
 }
@@ -688,13 +765,10 @@ func (a *App) deleteInstance(instance store.Instance) error {
 	return removeFiles(instance.LogPath, instance.TracePath)
 }
 
+// loadConfig delegates to ParseFile so the FROM directive can resolve
+// relative parent paths against the Agentfile being loaded.
 func (a *App) loadConfig(path string) (agent.Config, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return agent.Config{}, err
-	}
-	defer file.Close()
-	return a.parser.Parse(file)
+	return a.parser.ParseFile(path)
 }
 
 func requiredID(command string, args []string) (string, error) {
@@ -804,11 +878,23 @@ func writeMCPList(writer io.Writer, servers []agent.MCPServer) error {
 		return err
 	}
 	for _, server := range servers {
-		if _, err := fmt.Fprintf(writer, "  - %s -> %s\n", server.Name, server.URL); err != nil {
+		if _, err := fmt.Fprintf(writer, "  - %s [%s] %s\n", server.Name, server.Transport, mcpServerSummary(server)); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func mcpServerSummary(server agent.MCPServer) string {
+	switch server.Transport {
+	case agent.MCPTransportStdio:
+		if len(server.Args) == 0 {
+			return server.Command
+		}
+		return server.Command + " " + strings.Join(server.Args, " ")
+	default:
+		return server.URL
+	}
 }
 
 func writeRAGList(writer io.Writer, title string, sources []agent.RAGSource) error {

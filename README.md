@@ -33,6 +33,27 @@ agentctl tool mcp ls coder-<suffix>
 agentctl exec --args '{"q":"agents"}' coder-<suffix> search
 agentctl health planner-<suffix>
 agentctl trace planner-<suffix>
+agentctl logs --level warn planner-<suffix>
+```
+
+Authentication mirrors the Anthropic Agent SDK and OpenAI Agents SDK
+patterns — API key per provider, persisted to a 0600 file:
+
+```bash
+agentctl model anthropic auth login                                  # interactive
+agentctl model openai    auth login --api-key sk-... --no-interactive
+agentctl model vllm      auth login --endpoint http://localhost:8000/v1
+agentctl model auth ls
+```
+
+`Agentfile` supports Docker-like `FROM` inheritance and stdio MCP servers:
+
+```text
+FROM ../base/Agentfile
+AGENT researcher-from-base
+TYPE researcher
+MCP search http  http://localhost:9001/mcp
+MCP fs     stdio npx -y @modelcontextprotocol/server-filesystem /tmp
 ```
 
 `network` commands are intentionally not implemented yet; that surface is planned separately.

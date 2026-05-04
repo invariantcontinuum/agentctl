@@ -8,8 +8,8 @@ MODEL openai default endpoint=https://api.openai.com/v1 auth=api_key credential_
 
 SKILL builtin://skills/executor
 
-MCP shell http://localhost:9011/mcp
-MCP http  http://localhost:9014/mcp
+MCP shell http http://localhost:9011/mcp
+MCP http  http http://localhost:9014/mcp
 
 MEMORY runlog short window=4000
 

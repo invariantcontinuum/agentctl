@@ -1,0 +1,15 @@
+# Demonstrates Docker-like FROM inheritance. The child reuses everything
+# declared in examples/base/Agentfile and only adds its own deltas.
+
+FROM ../base/Agentfile
+
+IMAGE researcher:latest
+AGENT researcher-from-base
+TYPE researcher
+
+SKILL builtin://skills/researcher
+
+MCP search http http://localhost:9001/mcp
+MCP fs     stdio npx -y @modelcontextprotocol/server-filesystem /tmp
+
+VECTOR docs pgvector postgres://agentctl:agentctl@localhost:5432/agentctl?sslmode=disable docs_chunks

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 )
 
 type Provider struct {
@@ -74,6 +75,39 @@ func (c Catalog) List() []Provider {
 		return providers[left].Ref < providers[right].Ref
 	})
 	return providers
+}
+
+// Default returns the canonical provider definition for a short name like
+// "anthropic" or "openai". It tolerates both the bare name and an explicit
+// "<name>:<variant>" reference. An empty Provider is returned when no entry
+// exists, so callers can decide whether the absence is fatal.
+func (c Catalog) Default(name string) Provider {
+	prefix := strings.ToLower(strings.TrimSpace(name))
+	if prefix == "" {
+		return Provider{}
+	}
+	if hit, ok := c.findExact(prefix); ok {
+		return hit
+	}
+	for _, candidate := range c.providers {
+		ref := strings.ToLower(candidate.Ref)
+		if ref == prefix+":default" || ref == prefix+":local" || ref == prefix {
+			return candidate
+		}
+		if strings.HasPrefix(ref, prefix+":") {
+			return candidate
+		}
+	}
+	return Provider{}
+}
+
+func (c Catalog) findExact(ref string) (Provider, bool) {
+	for _, candidate := range c.providers {
+		if strings.EqualFold(candidate.Ref, ref) {
+			return candidate, true
+		}
+	}
+	return Provider{}, false
 }
 
 func (c Catalog) WriteTable(writer io.Writer) error {

@@ -2,6 +2,10 @@
 #
 # This intentionally uses a local process so the first agentctl driver can be
 # built and tested with only the Go standard library.
+#
+# To inherit a base Agentfile, place `FROM ./examples/base/Agentfile` as the
+# first non-comment line — single-value directives in this file then override
+# the parent and list-value directives append.
 
 IMAGE planner:latest
 AGENT planner-local
@@ -11,8 +15,10 @@ MODEL vllm local endpoint=http://localhost:8000/v1 auth=none
 
 SKILL ./skills/planner.md
 
-MCP search http://localhost:9001/mcp
-MCP code http://localhost:9002/mcp
+# MCP servers carry an explicit transport (http or stdio).
+MCP search http  http://localhost:9001/mcp
+MCP code   http  http://localhost:9002/mcp
+MCP fs     stdio npx -y @modelcontextprotocol/server-filesystem /tmp
 
 VECTOR docs pgvector postgres://agentctl:agentctl@localhost:5432/agentctl?sslmode=disable docs_chunks
 GRAPH tasks neo4j bolt://localhost:7687

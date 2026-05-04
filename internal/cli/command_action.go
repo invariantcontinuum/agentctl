@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/invariantcontinuum/agentctl/internal/agent"
+	"github.com/invariantcontinuum/agentctl/internal/mcp"
 	"github.com/invariantcontinuum/agentctl/internal/trace"
 )
 
@@ -30,20 +31,33 @@ func (a *App) toolMCP(ctx context.Context, args []string) error {
 
 	client := a.mcpClientFor(id)
 	for _, server := range instance.Config.MCPServers {
-		tools, err := client.ListTools(ctx, server.URL)
+		spec := toMCPServerSpec(server)
+		address := mcpServerSummary(server)
+		tools, err := client.ListTools(ctx, spec)
 		if err != nil {
-			fmt.Fprintf(a.out, "%s\t%s\tERROR\t%v\n", server.Name, server.URL, err)
+			fmt.Fprintf(a.out, "%s\t%s\t%s\tERROR\t%v\n", server.Name, server.Transport, address, err)
 			continue
 		}
 		if len(tools) == 0 {
-			fmt.Fprintf(a.out, "%s\t%s\t-\n", server.Name, server.URL)
+			fmt.Fprintf(a.out, "%s\t%s\t%s\t-\n", server.Name, server.Transport, address)
 			continue
 		}
 		for _, tool := range tools {
-			fmt.Fprintf(a.out, "%s\t%s\t%s\t%s\n", server.Name, server.URL, tool.Name, summarize(tool.Description))
+			fmt.Fprintf(a.out, "%s\t%s\t%s\t%s\t%s\n", server.Name, server.Transport, address, tool.Name, summarize(tool.Description))
 		}
 	}
 	return nil
+}
+
+func toMCPServerSpec(server agent.MCPServer) mcp.ServerSpec {
+	return mcp.ServerSpec{
+		Name:      server.Name,
+		Transport: server.Transport,
+		URL:       server.URL,
+		Command:   server.Command,
+		Args:      server.Args,
+		Env:       server.Env,
+	}
 }
 
 func (a *App) toolExec(ctx context.Context, args []string) error {
@@ -77,7 +91,7 @@ func (a *App) toolExec(ctx context.Context, args []string) error {
 
 	start := a.now()
 	client := a.mcpClientFor(id)
-	result, err := client.Call(ctx, target.URL, toolName, arguments)
+	result, err := client.Call(ctx, toMCPServerSpec(target), toolName, arguments)
 	latency := a.now().Sub(start)
 
 	traceEvent := trace.Event{

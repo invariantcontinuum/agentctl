@@ -8,8 +8,8 @@ MODEL anthropic default endpoint=https://api.anthropic.com auth=api_key credenti
 
 SKILL builtin://skills/coder
 
-MCP shell http://localhost:9011/mcp
-MCP fs    http://localhost:9012/mcp
+MCP shell http http://localhost:9011/mcp
+MCP fs    http http://localhost:9012/mcp
 
 VECTOR code pgvector postgres://agentctl:agentctl@localhost:5432/agentctl?sslmode=disable code_chunks
 

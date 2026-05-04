@@ -9,7 +9,7 @@ MODEL anthropic default endpoint=https://api.anthropic.com auth=api_key credenti
 
 SKILL builtin://skills/coordinator
 
-MCP delegation http://localhost:9020/mcp
+MCP delegation http http://localhost:9020/mcp
 
 MEMORY plans long source=tasks
 

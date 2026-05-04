@@ -9,7 +9,7 @@ MODEL llamacpp local endpoint=http://localhost:8102/v1 auth=none
 
 SKILL ./skills/planner.md
 
-MCP search http://localhost:9001/mcp
+MCP search http http://localhost:9001/mcp
 
 MEMORY plans short window=12000
 

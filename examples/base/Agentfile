@@ -1,0 +1,15 @@
+# Shared base Agentfile. Other Agentfiles reference this with `FROM ./base/Agentfile`
+# the same way a Dockerfile uses `FROM debian:slim`. Single-value directives in
+# the child override these defaults; list-value directives append.
+
+TYPE base
+
+MODEL anthropic default endpoint=https://api.anthropic.com auth=api_key credential_env=ANTHROPIC_API_KEY
+
+LOOP react max_steps=24
+
+ENV AGENTCTL_LOG_LEVEL=info
+LABEL owner=platform
+LABEL agentctl.base=examples/base/Agentfile
+
+EXEC ["sh", "-c", "echo base agent started; trap 'exit 0' TERM INT; while true; do sleep 60; done"]

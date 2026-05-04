@@ -34,10 +34,29 @@ type Model struct {
 	CredentialEnv string `json:"credential_env,omitempty"`
 }
 
+// MCPServer describes one MCP server attached to an agent. Two transports are
+// supported, mirroring the Claude Agent SDK and OpenAI Agents SDK MCP shapes:
+//
+//   - http: connect to an existing JSON-RPC endpoint over POST.
+//   - stdio: spawn Command with Args, exchange JSON-RPC over the child's
+//     stdin/stdout. Env entries are merged into the child environment.
+//
+// The Transport string is required and validated by agent.Validator.
 type MCPServer struct {
-	Name string `json:"name"`
-	URL  string `json:"url"`
+	Name      string            `json:"name"`
+	Transport string            `json:"transport"`
+	URL       string            `json:"url,omitempty"`
+	Command   string            `json:"command,omitempty"`
+	Args      []string          `json:"args,omitempty"`
+	Env       map[string]string `json:"env,omitempty"`
 }
+
+// MCP transport names. Kept here so parser, validator, CLI, and mcp client
+// agree on the literals.
+const (
+	MCPTransportHTTP  = "http"
+	MCPTransportStdio = "stdio"
+)
 
 type RAGSource struct {
 	Name       string `json:"name"`

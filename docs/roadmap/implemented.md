@@ -12,23 +12,41 @@
 ## Agent Manifests
 
 - Line-oriented `Agentfile`.
+- Docker-like `FROM <parent-Agentfile>` inheritance with override (single-value)
+  and append (list-value) merge semantics. Cycles are rejected.
 - `IMAGE`, `AGENT`, `TYPE`, `MODEL`, `SKILL`, `MCP`, `VECTOR`, `GRAPH`,
   `MEMORY`, `LOOP`, `ENDPOINT`, `ENV`, `LABEL`, and `EXEC` directives.
+- `MCP <name> http <url>` and `MCP <name> stdio <command> [args]` transports
+  (matching the Anthropic Agent SDK / OpenAI Agents SDK MCP shapes).
 
 ## Multi-Agent Compose
 
 - Line-oriented `AgentCompose` document with `COMPOSE` and `AGENT` directives.
 - `agentctl compose ls`, `compose up`, `compose down`, `compose ps`.
-- Topological start order from `DEPENDS_ON`; deterministic alphabetical
-  tie-break.
-- Compose-managed agents carry `agentctl.compose.project` and
-  `agentctl.compose.service` labels for tear-down and filtering.
+- Topological start order from `DEPENDS_ON`.
+
+## Auth and Credentials
+
+- `model <provider> auth login|logout|status` plus `model auth ls`.
+- File-backed credentials store at `${XDG_CONFIG_HOME}/agentctl/credentials.json`
+  (mode 0600).
+- Interactive prompt with POSIX `stty -echo` masking when available; falls
+  back to visible echo with a notice on platforms where `stty` is missing.
+- `model ls` shows a LOGGED IN column.
+
+## Structured Logging
+
+- `internal/logging` package with debug/info/warn/error levels and JSON-Lines
+  records.
+- `agentctl logs --level <level>` filters the agent's log file. Non-JSON
+  lines surface as info so legacy or non-conforming agents stay readable.
+- `--json` re-emits records verbatim for downstream tooling.
 
 ## Docker-Like UX
 
-- `run`, `ps -a/-q/-aq`, `logs`, `trace` (human + `--json`), `inspect`,
+- `run`, `ps -a/-q/-aq`, `logs --level/--json`, `trace`, `inspect`,
   `describe`, `stop`, `start`, `restart`, `rm -f`.
-- Singular and plural forms: `agent | agents`, `model | models`,
+- Singular and plural noun groups: `agent | agents`, `model | models`,
   `skill | skills`, `tool | tools`.
 
 ## Knowledge / Action / Persistence / Control
@@ -42,11 +60,10 @@
 
 ## Health & Discovery
 
-- `agentctl health <id>` probes `/health`, `/status`, and `/tasks` against the
-  agent's first ENDPOINT (or `--url` override) and records a `health` trace
-  event with ok/fail counts.
-- `agentctl tool mcp ls <id>` discovers MCP tool schemas via
-  `tools/list` JSON-RPC.
+- `agentctl health <id>` probes `/health`, `/status`, `/tasks` and records a
+  `health` trace event.
+- `agentctl tool mcp ls <id>` discovers tool schemas via JSON-RPC (http or
+  stdio).
 - `agentctl tool exec <id> <tool>` invokes `tools/call` and records a `tool`
   trace event with latency and status.
 
