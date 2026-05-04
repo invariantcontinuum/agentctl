@@ -175,6 +175,142 @@ func TestRunRmDeletesStateOnStop(t *testing.T) {
 	}
 }
 
+func TestRmDeletesStoppedAgentStateAndFiles(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "agent.log")
+	tracePath := filepath.Join(dir, "agent.trace")
+	writeTestFile(t, logPath, "log")
+	writeTestFile(t, tracePath, "trace")
+
+	repo := store.NewJSONRepository(filepath.Join(dir, "state.json"))
+	now := time.Unix(100, 0).UTC()
+	if err := repo.Save(store.Instance{
+		ID:        "coder-1",
+		Image:     "coder:latest",
+		Type:      "coder",
+		Status:    "stopped",
+		LogPath:   logPath,
+		TracePath: tracePath,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	app := New(&out, &errOut, repo, fakeDriver{})
+
+	exitCode := app.Run(context.Background(), []string{"rm", "coder-1"})
+	if exitCode != 0 {
+		t.Fatalf("exitCode = %d, stderr = %s", exitCode, errOut.String())
+	}
+	if got := out.String(); got != "coder-1\n" {
+		t.Fatalf("stdout = %q, want removed id", got)
+	}
+	if _, err := repo.Find("coder-1"); err == nil {
+		t.Fatal("Find returned nil error after rm")
+	}
+	assertNotExists(t, logPath)
+	assertNotExists(t, tracePath)
+}
+
+func TestRmRejectsRunningAgentWithoutForce(t *testing.T) {
+	dir := t.TempDir()
+	repo := store.NewJSONRepository(filepath.Join(dir, "state.json"))
+	now := time.Unix(100, 0).UTC()
+	if err := repo.Save(store.Instance{ID: "coder-1", Type: "coder", Status: "running", PID: 42, CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	app := New(&out, &errOut, repo, fakeDriver{pid: 42})
+
+	exitCode := app.Run(context.Background(), []string{"rm", "coder-1"})
+	if exitCode == 0 {
+		t.Fatalf("exitCode = %d, want failure", exitCode)
+	}
+	if !strings.Contains(errOut.String(), "without -f") {
+		t.Fatalf("stderr did not mention -f: %s", errOut.String())
+	}
+	if _, err := repo.Find("coder-1"); err != nil {
+		t.Fatalf("Find returned error after rejected rm: %v", err)
+	}
+}
+
+func TestAgentsRmForceDeletesRunningAgent(t *testing.T) {
+	dir := t.TempDir()
+	repo := store.NewJSONRepository(filepath.Join(dir, "state.json"))
+	now := time.Unix(100, 0).UTC()
+	if err := repo.Save(store.Instance{ID: "coder-1", Type: "coder", Status: "running", PID: 42, CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	app := New(&out, &errOut, repo, fakeDriver{pid: 42})
+
+	exitCode := app.Run(context.Background(), []string{"agents", "rm", "-f", "coder-1"})
+	if exitCode != 0 {
+		t.Fatalf("exitCode = %d, stderr = %s", exitCode, errOut.String())
+	}
+	if got := out.String(); got != "coder-1\n" {
+		t.Fatalf("stdout = %q, want removed id", got)
+	}
+	if _, err := repo.Find("coder-1"); err == nil {
+		t.Fatal("Find returned nil error after forced rm")
+	}
+}
+
+func TestDescribePrintsHumanReadableDetails(t *testing.T) {
+	dir := t.TempDir()
+	repo := store.NewJSONRepository(filepath.Join(dir, "state.json"))
+	now := time.Unix(100, 0).UTC()
+	config := agent.Config{
+		Image: "coder:latest",
+		Name:  "coder",
+		Type:  "coder",
+		Model: agent.Model{
+			Provider: "vllm",
+			Name:     "local",
+			Endpoint: "http://localhost:8000/v1",
+			Auth:     "none",
+		},
+		Skills: []agent.Skill{{Source: "builtin://skills/coder"}},
+		Loop:   agent.Loop{Strategy: "react", MaxSteps: 30},
+		Labels: map[string]string{"agentctl.taxonomy.control": "planning,loop,evaluation"},
+	}
+	if err := repo.Save(store.Instance{
+		ID:        "coder-1",
+		Name:      "coder",
+		Image:     "coder:latest",
+		Type:      "coder",
+		Status:    "running",
+		PID:       42,
+		Config:    config,
+		WorkDir:   ".",
+		CreatedAt: now,
+		UpdatedAt: now,
+	}); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	app := New(&out, &errOut, repo, fakeDriver{pid: 42})
+
+	exitCode := app.Run(context.Background(), []string{"agents", "describe", "coder-1"})
+	if exitCode != 0 {
+		t.Fatalf("exitCode = %d, stderr = %s", exitCode, errOut.String())
+	}
+	for _, want := range []string{"Agent:", "ID: coder-1", "Image: coder:latest", "Model:", "Provider: vllm", "Skills:", "builtin://skills/coder", "Labels:", "agentctl.taxonomy.control=planning,loop,evaluation"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("stdout did not contain %q: %s", want, out.String())
+		}
+	}
+}
+
 type fakeDriver struct {
 	pid int
 }
@@ -198,6 +334,13 @@ func writeTestFile(t *testing.T, path string, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(strings.TrimSpace(content)+"\n"), 0o600); err != nil {
 		t.Fatalf("WriteFile returned error: %v", err)
+	}
+}
+
+func assertNotExists(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("%s exists or stat returned unexpected error: %v", path, err)
 	}
 }
 

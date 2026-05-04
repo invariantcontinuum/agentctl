@@ -13,6 +13,8 @@ agentctl run --rm coder:latest
 agentctl ps -aq
 agentctl agents ls
 agentctl models ls
+agentctl describe coder-<suffix>
+agentctl rm -f coder-<suffix>
 ```
 
 `network` commands are intentionally not implemented yet; that surface is planned separately.
@@ -125,6 +127,8 @@ Inspect an agent:
 
 ```bash
 agentctl inspect planner-local-<suffix>
+agentctl describe planner-local-<suffix>
+agentctl agents describe planner-local-<suffix>
 ```
 
 Read logs and trace:
@@ -140,6 +144,14 @@ Stop, start, or restart an agent:
 agentctl stop planner-local-<suffix>
 agentctl start planner-local-<suffix>
 agentctl restart planner-local-<suffix>
+```
+
+Remove stopped agent state:
+
+```bash
+agentctl rm planner-local-<suffix>
+agentctl rm -f planner-local-<suffix>
+agentctl agents rm -f planner-local-<suffix>
 ```
 
 List local skills and configured MCP tools:
