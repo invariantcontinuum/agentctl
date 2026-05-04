@@ -24,10 +24,10 @@ func savedAgent(t *testing.T, dir string, mutate func(*store.Instance)) (*store.
 		Config: agent.Config{
 			Name:         "coder",
 			Type:         "coder",
-			VectorStores: []agent.RAGSource{{Name: "docs", Provider: "pgvector", DSN: "postgres://x", Collection: "docs_chunks"}},
-			GraphStores:  []agent.RAGSource{{Name: "tasks", Provider: "neo4j", DSN: "bolt://x"}},
-			Memories:     []agent.Memory{{Name: "session", Kind: "short", Source: "window=8000"}, {Name: "plans", Kind: "long", Source: "tasks"}},
-			Loop:         agent.Loop{Strategy: "react", MaxSteps: 30},
+			VectorStores: []agent.RAGSource{{Name: "docs", Type: "vector", Provider: "pgvector", URL: "postgres://x", Index: "docs_chunks"}},
+			GraphStores:  []agent.RAGSource{{Name: "tasks", Type: "graph", Provider: "neo4j", URL: "bolt://x"}},
+			Memories:     []agent.Memory{{Name: "session", Type: "short", Provider: "inmemory", Limit: 8000}, {Name: "plans", Type: "long", Provider: "postgres", Bucket: "tasks"}},
+			Loop:         agent.Loop{Name: "react", MaxSteps: 30},
 			Exec:         []string{"sleep", "1"},
 		},
 		CreatedAt: now,
@@ -132,7 +132,7 @@ func TestMemoryRecallReturnsBindingDetails(t *testing.T) {
 	}
 }
 
-func TestLoopListShowsStrategy(t *testing.T) {
+func TestLoopListShowsLoopName(t *testing.T) {
 	dir := t.TempDir()
 	repo, _ := savedAgent(t, dir, nil)
 
@@ -145,7 +145,7 @@ func TestLoopListShowsStrategy(t *testing.T) {
 		t.Fatalf("exitCode = %d, stderr = %s", exitCode, errOut.String())
 	}
 	if !strings.Contains(out.String(), "react") {
-		t.Fatalf("loop ls missing react strategy: %s", out.String())
+		t.Fatalf("loop ls missing react loop name: %s", out.String())
 	}
 }
 

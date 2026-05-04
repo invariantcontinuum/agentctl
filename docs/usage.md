@@ -1,5 +1,11 @@
 # Current CLI Usage
 
+`agentctl run` starts agents by spawning the bundled `agentd` runtime
+binary (when the Agentfile omits `EXEC`) or whatever command the
+`EXEC` directive declares. Either way, the started process must serve
+the [runtime contract](agentfile.md#runtime-contract) — `agentctl
+health`, `tool`, and `compose up` all rely on it.
+
 ## Lifecycle
 
 ```bash

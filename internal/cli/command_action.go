@@ -35,15 +35,15 @@ func (a *App) toolMCP(ctx context.Context, args []string) error {
 		address := mcpServerSummary(server)
 		tools, err := client.ListTools(ctx, spec)
 		if err != nil {
-			fmt.Fprintf(a.out, "%s\t%s\t%s\tERROR\t%v\n", server.Name, server.Transport, address, err)
+			fmt.Fprintf(a.out, "%s\t%s\t%s\tERROR\t%v\n", server.Name, mcpServerTransport(server), address, err)
 			continue
 		}
 		if len(tools) == 0 {
-			fmt.Fprintf(a.out, "%s\t%s\t%s\t-\n", server.Name, server.Transport, address)
+			fmt.Fprintf(a.out, "%s\t%s\t%s\t-\n", server.Name, mcpServerTransport(server), address)
 			continue
 		}
 		for _, tool := range tools {
-			fmt.Fprintf(a.out, "%s\t%s\t%s\t%s\t%s\n", server.Name, server.Transport, address, tool.Name, summarize(tool.Description))
+			fmt.Fprintf(a.out, "%s\t%s\t%s\t%s\t%s\n", server.Name, mcpServerTransport(server), address, tool.Name, summarize(tool.Description))
 		}
 	}
 	return nil
@@ -52,8 +52,10 @@ func (a *App) toolMCP(ctx context.Context, args []string) error {
 func toMCPServerSpec(server agent.MCPServer) mcp.ServerSpec {
 	return mcp.ServerSpec{
 		Name:      server.Name,
-		Transport: server.Transport,
+		Transport: mcpServerTransport(server),
 		URL:       server.URL,
+		BasePath:  server.BasePath,
+		Headers:   server.Headers,
 		Command:   server.Command,
 		Args:      server.Args,
 		Env:       server.Env,

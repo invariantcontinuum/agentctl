@@ -92,6 +92,30 @@ func TestCallEncodesArguments(t *testing.T) {
 	}
 }
 
+func TestHTTPAppliesBasePathAndHeaders(t *testing.T) {
+	stub := stubHTTPClient{
+		respond: func(request *http.Request) (*http.Response, error) {
+			if request.URL.String() != "http://localhost:9001/root/mcp" {
+				t.Fatalf("url = %q", request.URL.String())
+			}
+			if got := request.Header.Get("Authorization"); got != "Bearer token" {
+				t.Fatalf("Authorization = %q", got)
+			}
+			return newJSONResponse(200, `{"jsonrpc":"2.0","id":1,"result":{"tools":[]}}`), nil
+		},
+	}
+	client := NewClientWithHTTPClient(stub)
+	if _, err := client.ListTools(context.Background(), ServerSpec{
+		Name:      "search",
+		Transport: TransportHTTP,
+		URL:       "http://localhost:9001/root",
+		BasePath:  "/mcp",
+		Headers:   map[string]string{"Authorization": "Bearer token"},
+	}); err != nil {
+		t.Fatalf("ListTools returned error: %v", err)
+	}
+}
+
 func TestCallRequiresName(t *testing.T) {
 	client := NewClientWithHTTPClient(stubHTTPClient{respond: func(*http.Request) (*http.Response, error) { return nil, errors.New("must not be called") }})
 	if _, err := client.Call(context.Background(), httpServer("x"), "", nil); err == nil {

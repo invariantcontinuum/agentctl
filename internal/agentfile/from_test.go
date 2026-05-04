@@ -22,7 +22,7 @@ func TestFromInheritsAndOverrides(t *testing.T) {
 	writeFile(t, parentPath, `
 AGENT base
 TYPE planner
-MODEL anthropic default endpoint=https://api.anthropic.com auth=api_key credential_env=ANTHROPIC_API_KEY
+MODEL anthropic default base_url=https://api.anthropic.com auth=api_key api_key_env=ANTHROPIC_API_KEY
 SKILL ./skills/planner.md
 MCP search http http://localhost:9001/mcp
 LOOP react max_steps=20

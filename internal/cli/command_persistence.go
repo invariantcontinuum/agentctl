@@ -38,13 +38,13 @@ func (a *App) memoryList(args []string, kind string) error {
 		return err
 	}
 
-	fmt.Fprintf(a.out, "%-12s %-12s %s\n", "NAME", "KIND", "SOURCE")
+	fmt.Fprintf(a.out, "%-12s %-12s %-12s %-16s %s\n", "NAME", "TYPE", "PROVIDER", "BUCKET", "URL")
 	wrote := 0
 	for _, memory := range instance.Config.Memories {
-		if kind != "" && !strings.EqualFold(memory.Kind, kind) {
+		if kind != "" && !strings.EqualFold(memory.Type, kind) {
 			continue
 		}
-		fmt.Fprintf(a.out, "%-12s %-12s %s\n", memory.Name, memory.Kind, memory.Source)
+		fmt.Fprintf(a.out, "%-12s %-12s %-12s %-16s %s\n", memory.Name, memory.Type, memory.Provider, displayValue(memory.Bucket), displayValue(memory.URL))
 		wrote++
 	}
 	if wrote == 0 {
@@ -82,7 +82,11 @@ func (a *App) memoryRecall(args []string) error {
 	key := args[1]
 	for _, memory := range instance.Config.Memories {
 		if memory.Name == key {
-			fmt.Fprintf(a.out, "%s\t%s\t%s\n", memory.Name, memory.Kind, memory.Source)
+			source := memory.URL
+			if source == "" {
+				source = memory.Bucket
+			}
+			fmt.Fprintf(a.out, "%s\t%s\t%s\n", memory.Name, memory.Type, source)
 			return nil
 		}
 	}

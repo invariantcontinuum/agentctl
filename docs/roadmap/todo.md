@@ -3,13 +3,11 @@
 ## High Priority
 
 - `agentctl session` group mirroring the Anthropic Agent SDK and OpenAI
-  Agents SDK session shapes (resume, fork, dump, list).
+  Agents SDK session shapes (resume, fork, dump, list). The `agentsdk.FileSession`
+  storage exists; the CLI surface does not.
 - Live `loop ps` integration with the agent's `/status` endpoint.
 - Promote `health` reports into `describe` output when an ENDPOINT is set.
 - Stream traces and logs (`agentctl trace -f <id>`, `agentctl logs -f <id>`).
-- Auto-inject `credential_env` API keys from the credentials store into the
-  agent's runtime environment on `run` (today the operator wires them via
-  shell exports).
 
 ## Knowledge
 

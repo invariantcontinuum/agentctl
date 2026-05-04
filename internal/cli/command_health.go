@@ -67,10 +67,10 @@ func resolveBaseURL(endpoints []agent.Endpoint) (string, error) {
 	}
 	for _, endpoint := range endpoints {
 		if endpoint.Name == "http" {
-			return endpoint.URL, nil
+			return agent.EndpointURL(endpoint), nil
 		}
 	}
-	return endpoints[0].URL, nil
+	return agent.EndpointURL(endpoints[0]), nil
 }
 
 func healthSummaryFields(report health.Report) map[string]string {

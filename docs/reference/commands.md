@@ -18,7 +18,7 @@
 | Command | Purpose |
 | --- | --- |
 | `compose ls [-f path]` | List compose services in topological order. |
-| `compose up [-f path] [--dry-run]` | Start every AGENT in dependency order. |
+| `compose up [-f path] [--dry-run]` | Start every AGENT in dependency order; each service must pass `/health` (≤ 20 s, polled every 500 ms) before the next service starts. |
 | `compose down [-f path]` | Stop and remove every agent labelled with the compose project. |
 | `compose ps [-f path]` | List running compose services. |
 
@@ -45,7 +45,7 @@
 | --- | --- |
 | `memory ls <id>` | List configured memory bindings. |
 | `memory short ls <id>` | Filter to `kind=short` bindings. |
-| `memory long ls <id>` | Filter to `kind=long` bindings. |
+| `memory long ls <id>` | Filter to `type=long` bindings. |
 | `memory dump <id>` | Print memory bindings as JSON. |
 | `memory recall <id> <key>` | Print the binding metadata for `<key>`. |
 
@@ -53,7 +53,7 @@
 
 | Command | Purpose |
 | --- | --- |
-| `loop ls` | List loop strategy and limits per agent. |
+| `loop ls` | List loop name and limits per agent. |
 | `loop ps <id>` | Print loop summary for one agent. |
 | `loop trace <id>` | Print the trace file scoped by client-side filtering. |
 | `guard ls <id>` | Placeholder; surfaces the reserved GUARD directive. |

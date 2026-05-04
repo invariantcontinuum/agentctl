@@ -43,8 +43,8 @@ func TestHealthProbesEndpointAndTraces(t *testing.T) {
 		Config: agent.Config{
 			Name:      "planner",
 			Type:      "planner",
-			Endpoints: []agent.Endpoint{{Name: "http", URL: "http://localhost:8088"}},
-			Loop:      agent.Loop{Strategy: "react", MaxSteps: 1},
+			Endpoints: []agent.Endpoint{{Name: "http", Scheme: "http", Host: "localhost", Port: 8088}},
+			Loop:      agent.Loop{Name: "react", MaxSteps: 1},
 			Exec:      []string{"sleep", "1"},
 		},
 		CreatedAt: now,
@@ -89,7 +89,7 @@ func TestHealthRequiresEndpointOrURL(t *testing.T) {
 	if err := repo.Save(store.Instance{
 		ID:        "planner-1",
 		Type:      "planner",
-		Config:    agent.Config{Name: "planner", Type: "planner", Loop: agent.Loop{Strategy: "react", MaxSteps: 1}, Exec: []string{"sleep", "1"}},
+		Config:    agent.Config{Name: "planner", Type: "planner", Loop: agent.Loop{Name: "react", MaxSteps: 1}, Exec: []string{"sleep", "1"}},
 		CreatedAt: now,
 		UpdatedAt: now,
 	}); err != nil {

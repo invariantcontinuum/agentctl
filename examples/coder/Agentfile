@@ -4,7 +4,7 @@ IMAGE coder:latest
 AGENT coder-local
 TYPE coder
 
-MODEL anthropic default endpoint=https://api.anthropic.com auth=api_key credential_env=ANTHROPIC_API_KEY
+MODEL anthropic default base_url=https://api.anthropic.com auth=api_key api_key_env=ANTHROPIC_API_KEY
 
 SKILL builtin://skills/coder
 
@@ -13,7 +13,7 @@ MCP fs    http http://localhost:9012/mcp
 
 VECTOR code pgvector postgres://agentctl:agentctl@localhost:5432/agentctl?sslmode=disable code_chunks
 
-MEMORY scratchpad short window=16000
+MEMORY scratchpad short inmemory limit=16000
 
 LOOP react max_steps=40
 

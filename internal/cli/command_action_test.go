@@ -49,8 +49,8 @@ func TestToolMCPListsDiscoveredTools(t *testing.T) {
 		Config: agent.Config{
 			Name:       "coder",
 			Type:       "coder",
-			MCPServers: []agent.MCPServer{{Name: "search", Transport: agent.MCPTransportHTTP, URL: "http://localhost:9001/mcp"}},
-			Loop:       agent.Loop{Strategy: "react", MaxSteps: 1},
+			MCPServers: []agent.MCPServer{{Name: "search", URL: "http://localhost:9001/mcp"}},
+			Loop:       agent.Loop{Name: "react", MaxSteps: 1},
 			Exec:       []string{"sleep", "1"},
 		},
 		CreatedAt: now,
@@ -97,8 +97,8 @@ func TestToolExecCallsMCPAndTraces(t *testing.T) {
 		Config: agent.Config{
 			Name:       "coder",
 			Type:       "coder",
-			MCPServers: []agent.MCPServer{{Name: "search", Transport: agent.MCPTransportHTTP, URL: "http://localhost:9001/mcp"}},
-			Loop:       agent.Loop{Strategy: "react", MaxSteps: 1},
+			MCPServers: []agent.MCPServer{{Name: "search", URL: "http://localhost:9001/mcp"}},
+			Loop:       agent.Loop{Name: "react", MaxSteps: 1},
 			Exec:       []string{"sleep", "1"},
 		},
 		CreatedAt: now,
@@ -147,7 +147,7 @@ func TestToolExecRejectsMissingMCPServer(t *testing.T) {
 		ID:        "coder-1",
 		Type:      "coder",
 		Status:    "running",
-		Config:    agent.Config{Name: "coder", Type: "coder", Loop: agent.Loop{Strategy: "react", MaxSteps: 1}, Exec: []string{"sleep", "1"}},
+		Config:    agent.Config{Name: "coder", Type: "coder", Loop: agent.Loop{Name: "react", MaxSteps: 1}, Exec: []string{"sleep", "1"}},
 		CreatedAt: now,
 		UpdatedAt: now,
 	}); err != nil {
@@ -179,8 +179,8 @@ func TestToolExecPropagatesMCPError(t *testing.T) {
 		Config: agent.Config{
 			Name:       "coder",
 			Type:       "coder",
-			MCPServers: []agent.MCPServer{{Name: "search", Transport: agent.MCPTransportHTTP, URL: "http://localhost:9001/mcp"}},
-			Loop:       agent.Loop{Strategy: "react", MaxSteps: 1},
+			MCPServers: []agent.MCPServer{{Name: "search", URL: "http://localhost:9001/mcp"}},
+			Loop:       agent.Loop{Name: "react", MaxSteps: 1},
 			Exec:       []string{"sleep", "1"},
 		},
 		CreatedAt: now,

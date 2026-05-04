@@ -4,7 +4,7 @@
 
 TYPE base
 
-MODEL anthropic default endpoint=https://api.anthropic.com auth=api_key credential_env=ANTHROPIC_API_KEY
+MODEL anthropic default base_url=https://api.anthropic.com auth=api_key api_key_env=ANTHROPIC_API_KEY
 
 LOOP react max_steps=24
 

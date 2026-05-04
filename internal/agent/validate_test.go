@@ -6,7 +6,7 @@ func TestConfigValidatorRejectsMissingLoopMaxSteps(t *testing.T) {
 	config := Config{
 		Name: "planner",
 		Type: "planner",
-		Loop: Loop{Strategy: "react"},
+		Loop: Loop{Name: "react"},
 		Exec: []string{"sleep", "60"},
 	}
 
@@ -20,7 +20,7 @@ func TestConfigValidatorAcceptsMinimalConfig(t *testing.T) {
 	config := Config{
 		Name: "planner",
 		Type: "planner",
-		Loop: Loop{Strategy: "react", MaxSteps: 10},
+		Loop: Loop{Name: "react", MaxSteps: 10},
 		Exec: []string{"sleep", "60"},
 	}
 

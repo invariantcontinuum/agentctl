@@ -63,7 +63,7 @@ func (a *App) ragList(args []string, kind ragKind) error {
 }
 
 func writeRAGTable(writer interface{ Write(p []byte) (int, error) }, kind string, sources []agent.RAGSource) error {
-	if _, err := fmt.Fprintf(writer, "%-7s %-12s %-12s %-16s %s\n", "KIND", "NAME", "PROVIDER", "COLLECTION", "DSN"); err != nil {
+	if _, err := fmt.Fprintf(writer, "%-7s %-12s %-12s %-16s %s\n", "KIND", "NAME", "PROVIDER", "INDEX", "URL"); err != nil {
 		return err
 	}
 	if len(sources) == 0 {
@@ -71,11 +71,11 @@ func writeRAGTable(writer interface{ Write(p []byte) (int, error) }, kind string
 		return err
 	}
 	for _, source := range sources {
-		collection := source.Collection
-		if collection == "" {
-			collection = "-"
+		index := source.Index
+		if index == "" {
+			index = "-"
 		}
-		if _, err := fmt.Fprintf(writer, "%-7s %-12s %-12s %-16s %s\n", kind, source.Name, source.Provider, collection, source.DSN); err != nil {
+		if _, err := fmt.Fprintf(writer, "%-7s %-12s %-12s %-16s %s\n", kind, source.Name, source.Provider, index, source.URL); err != nil {
 			return err
 		}
 	}

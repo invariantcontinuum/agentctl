@@ -14,9 +14,9 @@
 package compose
 
 import (
+	"container/heap"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 )
 
@@ -36,7 +36,8 @@ type Document struct {
 // ErrCyclicDependency is returned by Plan when DEPENDS_ON forms a cycle.
 var ErrCyclicDependency = errors.New("cyclic depends_on graph")
 
-// Service returns the named service or false when missing.
+// Service returns the named service or false when missing. O(N) — Plan
+// builds an O(1) lookup internally and does not call this in its loop.
 func (d Document) Service(name string) (Service, bool) {
 	for _, service := range d.Services {
 		if service.Name == name {
@@ -83,16 +84,21 @@ func (d Document) Validate() error {
 	return nil
 }
 
-// Plan returns service names in dependency order (Kahn's algorithm). Equal-rank
-// nodes are sorted alphabetically so the output is deterministic for tests.
+// Plan returns services in dependency order using Kahn's algorithm with a
+// min-heap by name. Total cost is O((V + E) log V) — every node enters and
+// leaves the heap once and each edge contributes one indegree decrement.
+// Equal-rank nodes are emitted alphabetically so the output is
+// deterministic for tests and trace logs.
 func (d Document) Plan() ([]Service, error) {
 	if err := d.Validate(); err != nil {
 		return nil, err
 	}
 
-	indegree := map[string]int{}
-	graph := map[string][]string{}
+	byName := make(map[string]Service, len(d.Services))
+	indegree := make(map[string]int, len(d.Services))
+	graph := make(map[string][]string, len(d.Services))
 	for _, service := range d.Services {
+		byName[service.Name] = service
 		indegree[service.Name] = 0
 	}
 	for _, service := range d.Services {
@@ -102,29 +108,22 @@ func (d Document) Plan() ([]Service, error) {
 		}
 	}
 
-	ready := make([]string, 0)
+	ready := &nameHeap{}
+	heap.Init(ready)
 	for name, count := range indegree {
 		if count == 0 {
-			ready = append(ready, name)
+			heap.Push(ready, name)
 		}
 	}
-	sort.Strings(ready)
 
 	ordered := make([]Service, 0, len(d.Services))
-	for len(ready) > 0 {
-		current := ready[0]
-		ready = ready[1:]
-
-		service, _ := d.Service(current)
-		ordered = append(ordered, service)
-
-		nexts := append([]string{}, graph[current]...)
-		sort.Strings(nexts)
-		for _, next := range nexts {
+	for ready.Len() > 0 {
+		current := heap.Pop(ready).(string)
+		ordered = append(ordered, byName[current])
+		for _, next := range graph[current] {
 			indegree[next]--
 			if indegree[next] == 0 {
-				ready = append(ready, next)
-				sort.Strings(ready)
+				heap.Push(ready, next)
 			}
 		}
 	}
@@ -132,4 +131,20 @@ func (d Document) Plan() ([]Service, error) {
 		return nil, ErrCyclicDependency
 	}
 	return ordered, nil
+}
+
+// nameHeap is a string min-heap satisfying container/heap.Interface. It
+// orders names lexicographically so Plan produces deterministic output.
+type nameHeap []string
+
+func (h nameHeap) Len() int           { return len(h) }
+func (h nameHeap) Less(i, j int) bool { return h[i] < h[j] }
+func (h nameHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+func (h *nameHeap) Push(value any)    { *h = append(*h, value.(string)) }
+func (h *nameHeap) Pop() any {
+	old := *h
+	n := len(old)
+	value := old[n-1]
+	*h = old[:n-1]
+	return value
 }

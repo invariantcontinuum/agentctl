@@ -76,14 +76,14 @@ func (c Catalog) MustConfig(ref string) (agent.Config, error) {
 		Model: agent.Model{
 			Provider: "vllm",
 			Name:     "local",
-			Endpoint: "http://localhost:8000/v1",
+			BaseURL:  "http://localhost:8000/v1",
 			Auth:     "none",
 		},
 		Skills: []agent.Skill{
-			{Source: "builtin://skills/" + image.Role},
+			{Name: image.Role, Type: "builtin", Path: "builtin://skills/" + image.Role, Enabled: true},
 		},
 		Loop: agent.Loop{
-			Strategy: "react",
+			Name:     "react",
 			MaxSteps: 30,
 		},
 		Labels: map[string]string{

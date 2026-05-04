@@ -22,6 +22,7 @@ type Instance struct {
 	Config     agent.Config `json:"config"`
 	LogPath    string       `json:"log_path,omitempty"`
 	TracePath  string       `json:"trace_path,omitempty"`
+	ConfigPath string       `json:"config_path,omitempty"`
 	WorkDir    string       `json:"work_dir"`
 	AutoRemove bool         `json:"auto_remove,omitempty"`
 	CreatedAt  time.Time    `json:"created_at"`

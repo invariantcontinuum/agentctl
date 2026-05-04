@@ -11,11 +11,12 @@ IMAGE planner:latest
 AGENT planner-local
 TYPE planner
 
-MODEL vllm local endpoint=http://localhost:8000/v1 auth=none
+MODEL vllm local base_url=http://localhost:8000/v1 auth=none
 
 SKILL ./skills/planner.md
 
-# MCP servers carry an explicit transport (http or stdio).
+# MCP directives use an explicit transport token, then populate the canonical
+# server descriptor with URL or Command/Args.
 MCP search http  http://localhost:9001/mcp
 MCP code   http  http://localhost:9002/mcp
 MCP fs     stdio npx -y @modelcontextprotocol/server-filesystem /tmp
@@ -23,8 +24,8 @@ MCP fs     stdio npx -y @modelcontextprotocol/server-filesystem /tmp
 VECTOR docs pgvector postgres://agentctl:agentctl@localhost:5432/agentctl?sslmode=disable docs_chunks
 GRAPH tasks neo4j bolt://localhost:7687
 
-MEMORY session short window=12000
-MEMORY plans vector docs
+MEMORY session short inmemory limit=12000
+MEMORY plans long vector bucket=docs
 
 LOOP react max_steps=30
 

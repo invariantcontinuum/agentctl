@@ -6,13 +6,36 @@ The goal is a self-sufficient runtime for agents that makes the inner loop visib
 
 ## Current Focus
 
-The current codebase is an early Go implementation focused on local process lifecycle and command grammar:
+The codebase is a Go implementation that already runs agents end-to-end
+on the local machine. It ships two binaries:
 
-- `agentctl run` starts an agent from an `Agentfile` or role image.
-- `agentctl ps` and `agentctl agents ls` list agent state.
-- `agentctl logs`, `trace`, `inspect`, and `describe` expose local logs, traces, JSON state, and readable state.
-- `agentctl rm` removes stopped agent state, with `-f` for running agents.
-- `agentctl models ls` lists model provider definitions.
+- `agentctl` — the Docker-style CLI.
+- `agentd` — the bundled runtime that hosts a single agent and serves
+  the runtime contract (`/health`, `/status`, `/tasks`, `POST /tasks`,
+  `/tasks/{id}`). `agentctl run` defaults `EXEC` to `agentd` whenever
+  the Agentfile omits its own command, so a one-line Agentfile is
+  enough to boot a working agent.
+
+What works today:
+
+- `agentctl run` / `compose up` from an `Agentfile` (with Docker-like
+  `FROM` inheritance) or `AgentCompose` (topological order with
+  `/health` gating between services).
+- `agentctl ps`, `agent[s] ls / rm / describe`, `agentctl rm -f`,
+  `stop`, `start`, `restart`.
+- `agentctl logs --level <L> [--json]`, `trace [--json]`, `inspect`,
+  `describe`.
+- `agentctl model[s] ls`, plus per-provider auth:
+  `model <provider> auth login | logout | status` and
+  `model auth ls` against the credential store.
+- `agentctl exec`, `tool ls / mcp ls / exec`, `health`.
+- `agentctl rag ls`, `memory ls`, `loop ls`, `guard ls`,
+  `skill[s] ls`.
+- An `internal/agentsdk` package mirroring the Anthropic Agent SDK,
+  OpenAI Agents SDK, and Google ADK-Go shapes: `Agent`, `Tool`,
+  `Session`, `Hooks`, `Guardrail`, plus `Sequential` / `Parallel` /
+  `Loop` / `Handoff` / `Isolated` orchestrators behind one `Runnable`
+  interface.
 
 ## Long-Term Direction
 

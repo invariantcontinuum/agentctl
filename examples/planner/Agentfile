@@ -5,13 +5,13 @@ IMAGE planner:latest
 AGENT planner-local
 TYPE planner
 
-MODEL llamacpp local endpoint=http://localhost:8102/v1 auth=none
+MODEL llamacpp local base_url=http://localhost:8102/v1 auth=none
 
 SKILL ./skills/planner.md
 
 MCP search http http://localhost:9001/mcp
 
-MEMORY plans short window=12000
+MEMORY plans short inmemory limit=12000
 
 LOOP react max_steps=30
 

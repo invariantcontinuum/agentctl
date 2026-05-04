@@ -13,7 +13,13 @@ git clone https://github.com/invariantcontinuum/agentctl.git
 cd agentctl
 make build
 sudo install -m 0755 bin/agentctl /usr/local/bin/agentctl
+sudo install -m 0755 bin/agentd   /usr/local/bin/agentd
 ```
+
+`make build` produces both the CLI (`bin/agentctl`) and the bundled
+runtime (`bin/agentd`). `agentctl run` defaults `EXEC` to `agentd` when
+the Agentfile omits its own command, so installing both ensures the
+out-of-the-box `run` flow works without configuration.
 
 ## Release Assets
 

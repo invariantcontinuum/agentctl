@@ -32,8 +32,8 @@ func (ConfigValidator) Validate(config Config) error {
 	if len(config.Exec) == 0 || strings.TrimSpace(config.Exec[0]) == "" {
 		problems = append(problems, "EXEC is required")
 	}
-	if strings.TrimSpace(config.Loop.Strategy) == "" {
-		problems = append(problems, "LOOP strategy is required")
+	if strings.TrimSpace(config.Loop.Name) == "" {
+		problems = append(problems, "LOOP name is required")
 	}
 	if config.Loop.MaxSteps <= 0 {
 		problems = append(problems, "LOOP max_steps must be positive")
@@ -41,35 +41,33 @@ func (ConfigValidator) Validate(config Config) error {
 	if strings.TrimSpace(config.Model.Provider) != "" && strings.TrimSpace(config.Model.Name) == "" {
 		problems = append(problems, "MODEL name is required when provider is set")
 	}
-	if strings.TrimSpace(config.Model.Endpoint) != "" && !validURL(config.Model.Endpoint) {
-		problems = append(problems, "MODEL endpoint is invalid")
+	if strings.TrimSpace(config.Model.BaseURL) != "" && !validURL(config.Model.BaseURL) {
+		problems = append(problems, "MODEL base_url is invalid")
 	}
 
 	for _, server := range config.MCPServers {
 		if server.Name == "" {
 			problems = append(problems, "MCP server name is required")
 		}
-		switch server.Transport {
-		case MCPTransportHTTP:
-			if !validURL(server.URL) {
-				problems = append(problems, fmt.Sprintf("MCP %q URL is invalid", server.Name))
-			}
-		case MCPTransportStdio:
-			if strings.TrimSpace(server.Command) == "" {
-				problems = append(problems, fmt.Sprintf("MCP %q stdio command is required", server.Name))
-			}
-		case "":
-			problems = append(problems, fmt.Sprintf("MCP %q transport is required (http or stdio)", server.Name))
-		default:
-			problems = append(problems, fmt.Sprintf("MCP %q unknown transport %q", server.Name, server.Transport))
+		if strings.TrimSpace(server.URL) == "" && strings.TrimSpace(server.Command) == "" {
+			problems = append(problems, fmt.Sprintf("MCP %q requires url or command", server.Name))
+		}
+		if strings.TrimSpace(server.URL) != "" && !validURL(server.URL) {
+			problems = append(problems, fmt.Sprintf("MCP %q URL is invalid", server.Name))
+		}
+		if server.TimeoutSec < 0 {
+			problems = append(problems, fmt.Sprintf("MCP %q timeout_sec must be non-negative", server.Name))
 		}
 	}
 	for _, endpoint := range config.Endpoints {
 		if endpoint.Name == "" {
 			problems = append(problems, "ENDPOINT name is required")
 		}
-		if !validURL(endpoint.URL) {
-			problems = append(problems, fmt.Sprintf("ENDPOINT %q URL is invalid", endpoint.Name))
+		if endpoint.Scheme == "" || endpoint.Host == "" {
+			problems = append(problems, fmt.Sprintf("ENDPOINT %q scheme and host are required", endpoint.Name))
+		}
+		if endpoint.Port < 0 {
+			problems = append(problems, fmt.Sprintf("ENDPOINT %q port must be non-negative", endpoint.Name))
 		}
 	}
 

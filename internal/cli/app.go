@@ -41,7 +41,7 @@ type App struct {
 	models         model.Catalog
 	credentials    credentials.Store
 	now            func() time.Time
-	paths          func(string) (string, string, error)
+	paths          func(string) (string, string, string, error)
 	healthProbeFor func(string) *health.Probe
 	mcpClientFor   func(string) *mcp.Client
 }
@@ -178,7 +178,7 @@ func (a *App) printHelp() {
 	fmt.Fprintln(a.out, "Knowledge / Persistence / Control:")
 	fmt.Fprintln(a.out, "  rag ls       List RAG sources for an agent (vector + graph)")
 	fmt.Fprintln(a.out, "  memory ls    List memory bindings for an agent")
-	fmt.Fprintln(a.out, "  loop ls      Show loop strategy and limits")
+	fmt.Fprintln(a.out, "  loop ls      Show loop name and limits")
 	fmt.Fprintln(a.out, "  guard ls     Show configured guardrails (planned)")
 }
 
@@ -201,6 +201,16 @@ func (a *App) runAgent(ctx context.Context, args []string) error {
 	if *nameOverride != "" {
 		config.Name = *nameOverride
 	}
+
+	id := instanceID(config.Name, a.now())
+	logPath, tracePath, configPath, err := a.paths(id)
+	if err != nil {
+		return err
+	}
+
+	a.injectCredentials(&config)
+	defaultExec(&config, configPath)
+
 	if err := a.validator.Validate(config); err != nil {
 		return err
 	}
@@ -208,9 +218,7 @@ func (a *App) runAgent(ctx context.Context, args []string) error {
 		return writeJSON(a.out, config)
 	}
 
-	id := instanceID(config.Name, a.now())
-	logPath, tracePath, err := a.paths(id)
-	if err != nil {
+	if err := writeConfigFile(configPath, config); err != nil {
 		return err
 	}
 
@@ -230,6 +238,7 @@ func (a *App) runAgent(ctx context.Context, args []string) error {
 		Config:     config,
 		LogPath:    logPath,
 		TracePath:  tracePath,
+		ConfigPath: configPath,
 		WorkDir:    *workDir,
 		AutoRemove: *autoRemove,
 		CreatedAt:  now,
@@ -503,13 +512,16 @@ func (a *App) writeDescription(instance store.Instance, status string) error {
 		"Model:",
 		fmt.Sprintf("  Provider: %s", displayValue(instance.Config.Model.Provider)),
 		fmt.Sprintf("  Name: %s", displayValue(instance.Config.Model.Name)),
-		fmt.Sprintf("  Endpoint: %s", displayValue(instance.Config.Model.Endpoint)),
+		fmt.Sprintf("  Base URL: %s", displayValue(instance.Config.Model.BaseURL)),
 		fmt.Sprintf("  Auth: %s", displayValue(instance.Config.Model.Auth)),
-		fmt.Sprintf("  Credential Env: %s", displayValue(instance.Config.Model.CredentialEnv)),
+		fmt.Sprintf("  API Key Env: %s", displayValue(instance.Config.Model.APIKeyEnv)),
+		fmt.Sprintf("  Timeout Sec: %d", instance.Config.Model.TimeoutSec),
 		"",
 		"Loop:",
-		fmt.Sprintf("  Strategy: %s", displayValue(instance.Config.Loop.Strategy)),
+		fmt.Sprintf("  Name: %s", displayValue(instance.Config.Loop.Name)),
 		fmt.Sprintf("  Max Steps: %d", instance.Config.Loop.MaxSteps),
+		fmt.Sprintf("  Max Tokens: %d", instance.Config.Loop.MaxTokens),
+		fmt.Sprintf("  Tool Selection: %s", displayValue(instance.Config.Loop.ToolSelection)),
 	}
 
 	for _, line := range lines {
@@ -654,7 +666,7 @@ func (a *App) skills(args []string) error {
 
 func (a *App) tools(ctx context.Context, args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("usage: agentctl tool <ls|mcp|exec> ...")
+		return errors.New("usage: agentctl tool <ls|mcp|exec> [args]")
 	}
 	switch args[0] {
 	case "ls":
@@ -681,7 +693,7 @@ func (a *App) listTools(args []string) error {
 	}
 
 	for _, server := range instance.Config.MCPServers {
-		fmt.Fprintf(a.out, "%s\t%s\t%s\n", server.Name, server.Transport, mcpServerSummary(server))
+		fmt.Fprintf(a.out, "%s\t%s\t%s\n", server.Name, mcpServerTransport(server), mcpServerSummary(server))
 	}
 	return nil
 }
@@ -762,7 +774,7 @@ func (a *App) deleteInstance(instance store.Instance) error {
 	if err := a.repo.Delete(instance.ID); err != nil {
 		return err
 	}
-	return removeFiles(instance.LogPath, instance.TracePath)
+	return removeFiles(instance.LogPath, instance.TracePath, instance.ConfigPath)
 }
 
 // loadConfig delegates to ParseFile so the FROM directive can resolve
@@ -794,13 +806,16 @@ func printFile(writer io.Writer, path string) error {
 	return err
 }
 
-func runtimePaths(id string) (string, string, error) {
+func runtimePaths(id string) (string, string, string, error) {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	baseDir := filepath.Join(cacheDir, "agentctl")
-	return filepath.Join(baseDir, "logs", id+".log"), filepath.Join(baseDir, "traces", id+".trace"), nil
+	return filepath.Join(baseDir, "logs", id+".log"),
+		filepath.Join(baseDir, "traces", id+".trace"),
+		filepath.Join(baseDir, "configs", id+".json"),
+		nil
 }
 
 var unsafeIDChars = regexp.MustCompile(`[^a-zA-Z0-9_.-]+`)
@@ -819,7 +834,7 @@ func skillList(config agent.Config) string {
 	}
 	values := make([]string, 0, len(config.Skills))
 	for _, skill := range config.Skills {
-		values = append(values, skill.Source)
+		values = append(values, skillDisplay(skill))
 	}
 	return strings.Join(values, ",")
 }
@@ -827,9 +842,19 @@ func skillList(config agent.Config) string {
 func skillSources(config agent.Config) []string {
 	values := make([]string, 0, len(config.Skills))
 	for _, skill := range config.Skills {
-		values = append(values, skill.Source)
+		values = append(values, skillDisplay(skill))
 	}
 	return values
+}
+
+func skillDisplay(skill agent.Skill) string {
+	if skill.Path != "" {
+		return skill.Path
+	}
+	if skill.Name != "" {
+		return skill.Name
+	}
+	return skill.ID
 }
 
 func displayValue(value string) string {
@@ -878,23 +903,31 @@ func writeMCPList(writer io.Writer, servers []agent.MCPServer) error {
 		return err
 	}
 	for _, server := range servers {
-		if _, err := fmt.Fprintf(writer, "  - %s [%s] %s\n", server.Name, server.Transport, mcpServerSummary(server)); err != nil {
+		if _, err := fmt.Fprintf(writer, "  - %s [%s] %s\n", server.Name, mcpServerTransport(server), mcpServerSummary(server)); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+func mcpServerTransport(server agent.MCPServer) string {
+	if server.Command != "" {
+		return mcp.TransportStdio
+	}
+	return mcp.TransportHTTP
+}
+
 func mcpServerSummary(server agent.MCPServer) string {
-	switch server.Transport {
-	case agent.MCPTransportStdio:
+	if server.Command != "" {
 		if len(server.Args) == 0 {
 			return server.Command
 		}
 		return server.Command + " " + strings.Join(server.Args, " ")
-	default:
+	}
+	if server.BasePath == "" {
 		return server.URL
 	}
+	return strings.TrimRight(server.URL, "/") + "/" + strings.TrimLeft(server.BasePath, "/")
 }
 
 func writeRAGList(writer io.Writer, title string, sources []agent.RAGSource) error {
@@ -906,11 +939,11 @@ func writeRAGList(writer io.Writer, title string, sources []agent.RAGSource) err
 		return err
 	}
 	for _, source := range sources {
-		collection := source.Collection
-		if collection == "" {
-			collection = "-"
+		index := source.Index
+		if index == "" {
+			index = "-"
 		}
-		if _, err := fmt.Fprintf(writer, "  - %s provider=%s collection=%s dsn=%s\n", source.Name, source.Provider, collection, source.DSN); err != nil {
+		if _, err := fmt.Fprintf(writer, "  - %s type=%s provider=%s index=%s url=%s\n", source.Name, source.Type, source.Provider, index, source.URL); err != nil {
 			return err
 		}
 	}
@@ -926,7 +959,7 @@ func writeMemoryList(writer io.Writer, memories []agent.Memory) error {
 		return err
 	}
 	for _, memory := range memories {
-		if _, err := fmt.Fprintf(writer, "  - %s kind=%s source=%s\n", memory.Name, memory.Kind, memory.Source); err != nil {
+		if _, err := fmt.Fprintf(writer, "  - %s type=%s provider=%s bucket=%s url=%s limit=%d ttl_sec=%d\n", memory.Name, memory.Type, displayValue(memory.Provider), displayValue(memory.Bucket), displayValue(memory.URL), memory.Limit, memory.TTLSec); err != nil {
 			return err
 		}
 	}
@@ -942,7 +975,7 @@ func writeEndpointList(writer io.Writer, endpoints []agent.Endpoint) error {
 		return err
 	}
 	for _, endpoint := range endpoints {
-		if _, err := fmt.Fprintf(writer, "  - %s -> %s\n", endpoint.Name, endpoint.URL); err != nil {
+		if _, err := fmt.Fprintf(writer, "  - %s -> %s\n", endpoint.Name, agent.EndpointURL(endpoint)); err != nil {
 			return err
 		}
 	}

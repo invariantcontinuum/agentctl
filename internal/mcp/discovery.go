@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"sort"
 	"strings"
@@ -58,6 +59,8 @@ type ServerSpec struct {
 	Name      string
 	Transport string
 	URL       string
+	BasePath  string
+	Headers   map[string]string
 	Command   string
 	Args      []string
 	Env       map[string]string
@@ -180,7 +183,7 @@ func (c *Client) exchange(ctx context.Context, server ServerSpec, payload []byte
 		if server.URL == "" {
 			return nil, errors.New("MCP http transport requires a URL")
 		}
-		return c.exchangeHTTP(ctx, server.URL, payload)
+		return c.exchangeHTTP(ctx, serverHTTPURL(server), server.Headers, payload)
 	case TransportStdio:
 		if server.Command == "" {
 			return nil, errors.New("MCP stdio transport requires a Command")
@@ -190,12 +193,15 @@ func (c *Client) exchange(ctx context.Context, server ServerSpec, payload []byte
 	return nil, fmt.Errorf("MCP unknown transport %q", server.Transport)
 }
 
-func (c *Client) exchangeHTTP(ctx context.Context, url string, payload []byte) ([]byte, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
+func (c *Client) exchangeHTTP(ctx context.Context, rawURL string, headers map[string]string, payload []byte) ([]byte, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, rawURL, bytes.NewReader(payload))
 	if err != nil {
 		return nil, err
 	}
 	request.Header.Set("Content-Type", "application/json")
+	for key, value := range headers {
+		request.Header.Set(key, value)
+	}
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
@@ -211,6 +217,20 @@ func (c *Client) exchangeHTTP(ctx context.Context, url string, payload []byte) (
 		return nil, fmt.Errorf("mcp http %d: %s", response.StatusCode, bytes.TrimSpace(body))
 	}
 	return body, nil
+}
+
+func serverHTTPURL(server ServerSpec) string {
+	if strings.TrimSpace(server.BasePath) == "" {
+		return server.URL
+	}
+	parsed, err := url.Parse(server.URL)
+	if err != nil {
+		return server.URL
+	}
+	basePath := strings.TrimRight(parsed.Path, "/")
+	extraPath := "/" + strings.TrimLeft(server.BasePath, "/")
+	parsed.Path = basePath + extraPath
+	return parsed.String()
 }
 
 // execCommandRunner spawns the MCP server, writes one newline-delimited

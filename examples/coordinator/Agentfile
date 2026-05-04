@@ -5,13 +5,13 @@ IMAGE coordinator:latest
 AGENT coordinator-local
 TYPE coordinator
 
-MODEL anthropic default endpoint=https://api.anthropic.com auth=api_key credential_env=ANTHROPIC_API_KEY
+MODEL anthropic default base_url=https://api.anthropic.com auth=api_key api_key_env=ANTHROPIC_API_KEY
 
 SKILL builtin://skills/coordinator
 
 MCP delegation http http://localhost:9020/mcp
 
-MEMORY plans long source=tasks
+MEMORY plans long vector bucket=tasks
 
 LOOP react max_steps=60
 

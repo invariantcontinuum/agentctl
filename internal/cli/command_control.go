@@ -22,20 +22,20 @@ func (a *App) loop(ctx context.Context, args []string) error {
 	return fmt.Errorf("unknown loop command %q", args[0])
 }
 
-// loopList shows the loop strategy and step ceiling per recorded agent so an
+// loopList shows the loop name and step ceiling per recorded agent so an
 // operator can see at a glance which loops are running.
 func (a *App) loopList(ctx context.Context, _ []string) error {
 	instances, err := a.repo.List()
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(a.out, "%-24s %-12s %-10s %s\n", "AGENT ID", "STRATEGY", "MAX_STEPS", "STATUS")
+	fmt.Fprintf(a.out, "%-24s %-12s %-10s %s\n", "AGENT ID", "LOOP", "MAX_STEPS", "STATUS")
 	for _, instance := range instances {
 		status, err := a.instanceStatus(ctx, instance)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(a.out, "%-24s %-12s %-10d %s\n", instance.ID, displayValue(instance.Config.Loop.Strategy), instance.Config.Loop.MaxSteps, status)
+		fmt.Fprintf(a.out, "%-24s %-12s %-10d %s\n", instance.ID, displayValue(instance.Config.Loop.Name), instance.Config.Loop.MaxSteps, status)
 	}
 	return nil
 }
@@ -53,9 +53,9 @@ func (a *App) loopPs(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(a.out, "Agent: %s\nStrategy: %s\nMax Steps: %d\nStatus: %s\nPID: %s\n",
+	fmt.Fprintf(a.out, "Agent: %s\nLoop: %s\nMax Steps: %d\nStatus: %s\nPID: %s\n",
 		instance.ID,
-		displayValue(instance.Config.Loop.Strategy),
+		displayValue(instance.Config.Loop.Name),
 		instance.Config.Loop.MaxSteps,
 		status,
 		pidValue(instance.PID),

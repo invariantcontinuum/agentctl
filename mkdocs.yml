@@ -21,6 +21,7 @@ nav:
       - Capability Taxonomy: concepts/taxonomy.md
       - Agentic Visibility: concepts/agentic-visibility.md
       - Architecture: concepts/architecture.md
+      - Agent SDK: concepts/agent-sdk.md
   - Reference:
       - Implemented Commands: reference/commands.md
       - Target API: reference/target-api.md

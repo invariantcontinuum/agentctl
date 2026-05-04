@@ -4,14 +4,14 @@ IMAGE executor:latest
 AGENT executor-local
 TYPE executor
 
-MODEL openai default endpoint=https://api.openai.com/v1 auth=api_key credential_env=OPENAI_API_KEY
+MODEL openai default base_url=https://api.openai.com/v1 auth=api_key api_key_env=OPENAI_API_KEY
 
 SKILL builtin://skills/executor
 
 MCP shell http http://localhost:9011/mcp
 MCP http  http http://localhost:9014/mcp
 
-MEMORY runlog short window=4000
+MEMORY runlog short inmemory limit=4000
 
 LOOP react max_steps=12
 

@@ -36,7 +36,7 @@ func TestLogsLevelFilterDropsBelowMin(t *testing.T) {
 		ID:        "coder-1",
 		Type:      "coder",
 		LogPath:   logPath,
-		Config:    agent.Config{Name: "coder", Type: "coder", Loop: agent.Loop{Strategy: "react", MaxSteps: 1}, Exec: []string{"sleep", "1"}},
+		Config:    agent.Config{Name: "coder", Type: "coder", Loop: agent.Loop{Name: "react", MaxSteps: 1}, Exec: []string{"sleep", "1"}},
 		CreatedAt: now,
 		UpdatedAt: now,
 	}); err != nil {
@@ -74,7 +74,7 @@ func TestLogsRejectsUnknownLevel(t *testing.T) {
 		ID:        "coder-1",
 		Type:      "coder",
 		LogPath:   logPath,
-		Config:    agent.Config{Name: "coder", Type: "coder", Loop: agent.Loop{Strategy: "react", MaxSteps: 1}, Exec: []string{"sleep", "1"}},
+		Config:    agent.Config{Name: "coder", Type: "coder", Loop: agent.Loop{Name: "react", MaxSteps: 1}, Exec: []string{"sleep", "1"}},
 		CreatedAt: now,
 		UpdatedAt: now,
 	}); err != nil {

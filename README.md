@@ -224,6 +224,20 @@ agentctl trace planner-local-<suffix>
 agentctl trace --json planner-local-<suffix>
 ```
 
+When the Agentfile omits `EXEC`, the CLI runs the bundled `agentd` binary
+(`./bin/agentd` after `make build`). It exposes `/health`, `/status`,
+`/tasks`, `POST /tasks`, and `/tasks/{id}` — exactly what `agentctl health`
+probes. Submit work with `curl`:
+
+```bash
+curl -X POST http://127.0.0.1:8088/tasks \
+  -H 'Content-Type: application/json' \
+  -d '{"prompt":"summarise the last commit","system":"be brief"}'
+```
+
+Provider credentials saved with `agentctl model <provider> auth login`
+are injected into the child process before `agentd` starts.
+
 Inspect knowledge, persistence, and control bindings:
 
 ```bash

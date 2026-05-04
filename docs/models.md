@@ -36,19 +36,22 @@ The CLI prefers POSIX `stty -echo` to mute interactive secret prompts. When
 `stty` isn't available (Windows, restricted shells) the prompt falls back to
 visible echo and prints a notice — pass `--api-key` or pipe stdin instead.
 
-API keys are not mirrored back into `Agentfile` manifests. The runtime is
-expected to consume them via the well-known environment variable named in the
-`MODEL ... credential_env=...` field (e.g. `OPENAI_API_KEY`,
-`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`).
+API keys are not mirrored back into `Agentfile` manifests. At `run` and
+`compose up` time the CLI auto-injects the stored key under
+`api_key_env` (defaulting to the catalog name — `OPENAI_API_KEY`,
+`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`), overrides `MODEL base_url` from
+the credential record if one is set, and copies any `extra_env`
+switches into the child process environment before exec. The bundled
+`agentd` runtime then reads the value via `os.Getenv`.
 
 ## Provider configuration via Agentfile
 
 Agentfiles bind a model with the `MODEL` directive:
 
 ```text
-MODEL openai default endpoint=https://api.openai.com/v1 auth=api_key credential_env=OPENAI_API_KEY
-MODEL anthropic default endpoint=https://api.anthropic.com auth=api_key credential_env=ANTHROPIC_API_KEY
-MODEL vllm local endpoint=http://localhost:8000/v1 auth=none
+MODEL openai default base_url=https://api.openai.com/v1 auth=api_key api_key_env=OPENAI_API_KEY
+MODEL anthropic default base_url=https://api.anthropic.com auth=api_key api_key_env=ANTHROPIC_API_KEY
+MODEL vllm local base_url=http://localhost:8000/v1 auth=none
 ```
 
 Combine with `FROM ./base/Agentfile` to share model defaults across many

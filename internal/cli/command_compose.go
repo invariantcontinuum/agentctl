@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/invariantcontinuum/agentctl/internal/agent"
 	"github.com/invariantcontinuum/agentctl/internal/compose"
@@ -62,16 +63,19 @@ func (a *App) composeUp(ctx context.Context, args []string) error {
 		if err := a.startComposeService(ctx, document, service, composeDir); err != nil {
 			return fmt.Errorf("compose service %q: %w", service.Name, err)
 		}
+		if err := a.waitForServiceHealth(ctx, document, service); err != nil {
+			return fmt.Errorf("compose service %q: %w", service.Name, err)
+		}
 	}
 	return nil
 }
 
 func (a *App) startComposeService(ctx context.Context, document compose.Document, service compose.Service, composeDir string) error {
-	configPath := service.File
-	if !filepath.IsAbs(configPath) {
-		configPath = filepath.Join(composeDir, configPath)
+	manifestPath := service.File
+	if !filepath.IsAbs(manifestPath) {
+		manifestPath = filepath.Join(composeDir, manifestPath)
 	}
-	config, err := a.loadConfig(configPath)
+	config, err := a.loadConfig(manifestPath)
 	if err != nil {
 		return err
 	}
@@ -83,13 +87,19 @@ func (a *App) startComposeService(ctx context.Context, document compose.Document
 	}
 	config.Labels[composeProjectLabel] = document.Name
 	config.Labels[composeServiceLabel] = service.Name
+
+	id := instanceID(service.Name, a.now())
+	logPath, tracePath, configPath, err := a.paths(id)
+	if err != nil {
+		return err
+	}
+	a.injectCredentials(&config)
+	defaultExec(&config, configPath)
+
 	if err := a.validator.Validate(config); err != nil {
 		return err
 	}
-
-	id := instanceID(service.Name, a.now())
-	logPath, tracePath, err := a.paths(id)
-	if err != nil {
+	if err := writeConfigFile(configPath, config); err != nil {
 		return err
 	}
 
@@ -100,18 +110,19 @@ func (a *App) startComposeService(ctx context.Context, document compose.Document
 
 	now := a.now().UTC()
 	instance := store.Instance{
-		ID:        id,
-		Name:      config.Name,
-		Image:     config.Image,
-		Type:      config.Type,
-		Status:    string(driver.StatusRunning),
-		PID:       process.PID,
-		Config:    config,
-		LogPath:   logPath,
-		TracePath: tracePath,
-		WorkDir:   composeDir,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:         id,
+		Name:       config.Name,
+		Image:      config.Image,
+		Type:       config.Type,
+		Status:     string(driver.StatusRunning),
+		PID:        process.PID,
+		Config:     config,
+		LogPath:    logPath,
+		TracePath:  tracePath,
+		ConfigPath: configPath,
+		WorkDir:    composeDir,
+		CreatedAt:  now,
+		UpdatedAt:  now,
 	}
 	if err := a.repo.Save(instance); err != nil {
 		return err
@@ -268,6 +279,62 @@ func depsValue(values []string) string {
 		return "-"
 	}
 	return strings.Join(values, ",")
+}
+
+// waitForServiceHealth polls the runtime contract's /health endpoint for the
+// freshly started service so dependent services (DEPENDS_ON) only run once
+// the prerequisite is actually serving requests. Services that don't declare
+// an `ENDPOINT http <url>` are skipped — there is nothing to probe.
+func (a *App) waitForServiceHealth(ctx context.Context, document compose.Document, service compose.Service) error {
+	instances, err := a.repo.List()
+	if err != nil {
+		return err
+	}
+	var instance store.Instance
+	found := false
+	for _, candidate := range instances {
+		if candidate.Config.Labels[composeProjectLabel] == document.Name &&
+			candidate.Config.Labels[composeServiceLabel] == service.Name {
+			instance = candidate
+			found = true
+		}
+	}
+	if !found {
+		return nil
+	}
+	url := httpEndpointURL(instance.Config)
+	if url == "" {
+		return nil
+	}
+	probe := a.healthProbeFor(instance.ID)
+	overall, cancelOverall := context.WithTimeout(ctx, 20*time.Second)
+	defer cancelOverall()
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		probeCtx, cancel := context.WithTimeout(overall, 2*time.Second)
+		report, err := probe.Run(probeCtx, url)
+		cancel()
+		if err == nil && len(report.Probes) > 0 && report.Probes[0].OK {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-overall.Done():
+			return fmt.Errorf("service %q failed health probe at %s", service.Name, url)
+		case <-ticker.C:
+		}
+	}
+}
+
+func httpEndpointURL(config agent.Config) string {
+	for _, endpoint := range config.Endpoints {
+		if strings.EqualFold(endpoint.Name, "http") {
+			return agent.EndpointURL(endpoint)
+		}
+	}
+	return ""
 }
 
 // Compile-time check that agent.Config is the type we use here.

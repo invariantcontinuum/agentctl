@@ -5,7 +5,7 @@ IMAGE researcher:latest
 AGENT researcher-local
 TYPE researcher
 
-MODEL llamacpp local endpoint=http://localhost:8102/v1 auth=none
+MODEL llamacpp local base_url=http://localhost:8102/v1 auth=none
 
 SKILL builtin://skills/researcher
 
@@ -15,8 +15,8 @@ MCP web    http http://localhost:9003/mcp
 VECTOR docs   pgvector postgres://agentctl:agentctl@localhost:5432/agentctl?sslmode=disable docs_chunks
 GRAPH  tasks  neo4j    bolt://localhost:7687
 
-MEMORY findings long source=docs
-MEMORY session  short window=8000
+MEMORY findings long vector bucket=docs
+MEMORY session  short inmemory limit=8000
 
 LOOP react max_steps=24
 

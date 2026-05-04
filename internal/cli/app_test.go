@@ -274,11 +274,11 @@ func TestDescribePrintsHumanReadableDetails(t *testing.T) {
 		Model: agent.Model{
 			Provider: "vllm",
 			Name:     "local",
-			Endpoint: "http://localhost:8000/v1",
+			BaseURL:  "http://localhost:8000/v1",
 			Auth:     "none",
 		},
-		Skills: []agent.Skill{{Source: "builtin://skills/coder"}},
-		Loop:   agent.Loop{Strategy: "react", MaxSteps: 30},
+		Skills: []agent.Skill{{Name: "coder", Type: "builtin", Path: "builtin://skills/coder", Enabled: true}},
+		Loop:   agent.Loop{Name: "react", MaxSteps: 30},
 		Labels: map[string]string{"agentctl.taxonomy.control": "planning,loop,evaluation"},
 	}
 	if err := repo.Save(store.Instance{
@@ -344,8 +344,11 @@ func assertNotExists(t *testing.T, path string) {
 	}
 }
 
-func testRuntimePaths(dir string) func(string) (string, string, error) {
-	return func(id string) (string, string, error) {
-		return filepath.Join(dir, id+".log"), filepath.Join(dir, id+".trace"), nil
+func testRuntimePaths(dir string) func(string) (string, string, string, error) {
+	return func(id string) (string, string, string, error) {
+		return filepath.Join(dir, id+".log"),
+			filepath.Join(dir, id+".trace"),
+			filepath.Join(dir, id+".json"),
+			nil
 	}
 }
