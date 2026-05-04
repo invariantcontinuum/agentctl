@@ -41,4 +41,11 @@ func TestJSONRepositorySaveFindAndList(t *testing.T) {
 	if len(list) != 1 {
 		t.Fatalf("List length = %d, want 1", len(list))
 	}
+
+	if err := repo.Delete("planner-1"); err != nil {
+		t.Fatalf("Delete returned error: %v", err)
+	}
+	if _, err := repo.Find("planner-1"); err == nil {
+		t.Fatal("Find returned nil error after Delete")
+	}
 }

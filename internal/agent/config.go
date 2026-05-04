@@ -6,8 +6,10 @@ import (
 )
 
 type Config struct {
+	Image        string            `json:"image,omitempty"`
 	Name         string            `json:"name"`
 	Type         string            `json:"type"`
+	Model        Model             `json:"model,omitempty"`
 	Skills       []Skill           `json:"skills,omitempty"`
 	MCPServers   []MCPServer       `json:"mcp_servers,omitempty"`
 	VectorStores []RAGSource       `json:"vector_stores,omitempty"`
@@ -22,6 +24,14 @@ type Config struct {
 
 type Skill struct {
 	Source string `json:"source"`
+}
+
+type Model struct {
+	Provider      string `json:"provider,omitempty"`
+	Name          string `json:"name,omitempty"`
+	Endpoint      string `json:"endpoint,omitempty"`
+	Auth          string `json:"auth,omitempty"`
+	CredentialEnv string `json:"credential_env,omitempty"`
 }
 
 type MCPServer struct {

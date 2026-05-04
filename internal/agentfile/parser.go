@@ -58,6 +58,12 @@ func parseLine(config *agent.Config, line string) error {
 	args := fields[1:]
 
 	switch directive {
+	case "IMAGE":
+		value, err := singleArg(directive, args)
+		if err != nil {
+			return err
+		}
+		config.Image = value
 	case "AGENT":
 		value, err := singleArg(directive, args)
 		if err != nil {
@@ -76,6 +82,12 @@ func parseLine(config *agent.Config, line string) error {
 			return err
 		}
 		config.Skills = append(config.Skills, agent.Skill{Source: value})
+	case "MODEL":
+		model, err := parseModel(args)
+		if err != nil {
+			return err
+		}
+		config.Model = model
 	case "MCP":
 		if len(args) != 2 {
 			return fmt.Errorf("MCP expects <name> <url>")
@@ -168,6 +180,31 @@ func keyValue(directive string, args []string) (string, string, error) {
 		return "", "", fmt.Errorf("%s expects <key>=<value>", directive)
 	}
 	return key, value, nil
+}
+
+func parseModel(args []string) (agent.Model, error) {
+	if len(args) < 2 {
+		return agent.Model{}, fmt.Errorf("MODEL expects <provider> <name> [key=value ...]")
+	}
+
+	model := agent.Model{Provider: args[0], Name: args[1]}
+	for _, pair := range args[2:] {
+		key, value, ok := strings.Cut(pair, "=")
+		if !ok || key == "" {
+			return agent.Model{}, fmt.Errorf("MODEL option %q must use key=value", pair)
+		}
+		switch key {
+		case "endpoint":
+			model.Endpoint = value
+		case "auth":
+			model.Auth = value
+		case "credential_env":
+			model.CredentialEnv = value
+		default:
+			return agent.Model{}, fmt.Errorf("unknown MODEL option %q", key)
+		}
+	}
+	return model, nil
 }
 
 func stripComment(line string) string {

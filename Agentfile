@@ -3,8 +3,11 @@
 # This intentionally uses a local process so the first agentctl driver can be
 # built and tested with only the Go standard library.
 
+IMAGE planner:latest
 AGENT planner-local
 TYPE planner
+
+MODEL vllm local endpoint=http://localhost:8000/v1 auth=none
 
 SKILL ./skills/planner.md
 

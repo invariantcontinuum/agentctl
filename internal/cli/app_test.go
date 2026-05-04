@@ -70,6 +70,111 @@ EXEC ["sleep", "60"]
 	}
 }
 
+func TestRunImageDryRunUsesCatalog(t *testing.T) {
+	dir := t.TempDir()
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	app := New(&out, &errOut, store.NewJSONRepository(filepath.Join(dir, "state.json")), fakeDriver{})
+	app.paths = testRuntimePaths(dir)
+
+	exitCode := app.Run(context.Background(), []string{"run", "--dry-run", "coder:latest"})
+	if exitCode != 0 {
+		t.Fatalf("exitCode = %d, stderr = %s", exitCode, errOut.String())
+	}
+	if !strings.Contains(out.String(), `"image": "coder:latest"`) {
+		t.Fatalf("stdout did not contain image: %s", out.String())
+	}
+	if !strings.Contains(out.String(), `"type": "coder"`) {
+		t.Fatalf("stdout did not contain coder type: %s", out.String())
+	}
+}
+
+func TestPsQuietAllPrintsIDsOnly(t *testing.T) {
+	dir := t.TempDir()
+	repo := store.NewJSONRepository(filepath.Join(dir, "state.json"))
+	now := time.Unix(100, 0).UTC()
+	if err := repo.Save(store.Instance{ID: "coder-1", Type: "coder", Status: "running", PID: 42, CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+	if err := repo.Save(store.Instance{ID: "reviewer-1", Type: "reviewer", Status: "stopped", CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	app := New(&out, &errOut, repo, fakeDriver{pid: 42})
+
+	exitCode := app.Run(context.Background(), []string{"ps", "-aq"})
+	if exitCode != 0 {
+		t.Fatalf("exitCode = %d, stderr = %s", exitCode, errOut.String())
+	}
+	if got := out.String(); got != "coder-1\nreviewer-1\n" {
+		t.Fatalf("stdout = %q, want IDs only", got)
+	}
+}
+
+func TestAgentsLsDelegatesToPs(t *testing.T) {
+	dir := t.TempDir()
+	repo := store.NewJSONRepository(filepath.Join(dir, "state.json"))
+	now := time.Unix(100, 0).UTC()
+	if err := repo.Save(store.Instance{ID: "planner-1", Image: "planner:latest", Type: "planner", Status: "running", PID: 42, CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatalf("Save returned error: %v", err)
+	}
+
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	app := New(&out, &errOut, repo, fakeDriver{pid: 42})
+
+	exitCode := app.Run(context.Background(), []string{"agents", "ls"})
+	if exitCode != 0 {
+		t.Fatalf("exitCode = %d, stderr = %s", exitCode, errOut.String())
+	}
+	if !strings.Contains(out.String(), "planner-1") {
+		t.Fatalf("stdout did not contain planner-1: %s", out.String())
+	}
+}
+
+func TestModelsLsListsProviders(t *testing.T) {
+	dir := t.TempDir()
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	app := New(&out, &errOut, store.NewJSONRepository(filepath.Join(dir, "state.json")), fakeDriver{})
+
+	exitCode := app.Run(context.Background(), []string{"models", "ls"})
+	if exitCode != 0 {
+		t.Fatalf("exitCode = %d, stderr = %s", exitCode, errOut.String())
+	}
+	for _, want := range []string{"openai:default", "anthropic:default", "gemini:default", "vllm:local", "llamacpp:local"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("stdout did not contain %q: %s", want, out.String())
+		}
+	}
+}
+
+func TestRunRmDeletesStateOnStop(t *testing.T) {
+	dir := t.TempDir()
+	repo := store.NewJSONRepository(filepath.Join(dir, "state.json"))
+	var out bytes.Buffer
+	var errOut bytes.Buffer
+	app := New(&out, &errOut, repo, fakeDriver{pid: 42})
+	app.now = func() time.Time { return time.Unix(100, 0).UTC() }
+	app.paths = testRuntimePaths(dir)
+
+	exitCode := app.Run(context.Background(), []string{"run", "--rm", "coder:latest"})
+	if exitCode != 0 {
+		t.Fatalf("run exitCode = %d, stderr = %s", exitCode, errOut.String())
+	}
+	id := strings.TrimSpace(out.String())
+
+	exitCode = app.Run(context.Background(), []string{"stop", id})
+	if exitCode != 0 {
+		t.Fatalf("stop exitCode = %d, stderr = %s", exitCode, errOut.String())
+	}
+	if _, err := repo.Find(id); err == nil {
+		t.Fatal("Find returned nil error after --rm stop")
+	}
+}
+
 type fakeDriver struct {
 	pid int
 }

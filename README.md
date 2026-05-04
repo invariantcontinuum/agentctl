@@ -6,6 +6,17 @@
 
 The project is Go 1.26.2+, standard-library-first, and organized around explicit package boundaries for domain validation, `Agentfile` parsing, state persistence, runtime drivers, and CLI presentation.
 
+The CLI intentionally follows Docker command shapes:
+
+```bash
+agentctl run --rm coder:latest
+agentctl ps -aq
+agentctl agents ls
+agentctl models ls
+```
+
+`network` commands are intentionally not implemented yet; that surface is planned separately.
+
 ## Install
 
 Release assets are published for Windows, macOS, Linux tarballs, Debian/Ubuntu `.deb`, and RHEL/Fedora `.rpm` on x64 and ARM64.
@@ -90,6 +101,12 @@ Parse and validate an `Agentfile` without starting it:
 agentctl run -f Agentfile --dry-run
 ```
 
+Start a role image with Docker-like `--rm` lifecycle behavior:
+
+```bash
+agentctl run --rm coder:latest
+```
+
 Start the sample local planner agent:
 
 ```bash
@@ -100,6 +117,8 @@ List known agents:
 
 ```bash
 agentctl ps
+agentctl ps -aq
+agentctl agents ls
 ```
 
 Inspect an agent:
@@ -126,13 +145,41 @@ agentctl restart planner-local-<suffix>
 List local skills and configured MCP tools:
 
 ```bash
-agentctl list-skills ./skills
-agentctl list-tools planner-local-<suffix>
+agentctl skills ls ./skills
+agentctl tools ls planner-local-<suffix>
+```
+
+List model provider definitions:
+
+```bash
+agentctl models ls
 ```
 
 ## Agentfile
 
 See [docs/agentfile.md](docs/agentfile.md) and the sample [Agentfile](Agentfile).
+
+## Capability Taxonomy
+
+`agentctl` keeps agent capabilities in a clean taxonomy:
+
+- Knowledge: RAG, vector databases, graph databases, GraphRAG, and hybrid retrieval.
+- Action: tools, MCP servers, function calling, APIs, code execution, search, databases, and file operations.
+- Persistence: short-term context, conversation history, summaries, long-term memory, episodic memory, vector memory, and graph memory.
+- Control: planning, reasoning, orchestration loops, evaluation, guardrails, tool permissioning, and completion criteria.
+- Specialization: skills, `.md` playbooks, and role-specific agents such as planner, researcher, coder, reviewer, executor, and coordinator.
+
+## Models
+
+`agentctl models ls` lists model provider definitions, not hardcoded model clients. The provider abstraction covers:
+
+- OpenAI-compatible hosted APIs using `OPENAI_API_KEY`.
+- Anthropic hosted APIs using `ANTHROPIC_API_KEY`.
+- Gemini hosted APIs using API keys or OAuth-backed driver configuration.
+- Local OpenAI-compatible vLLM endpoints.
+- Local OpenAI-compatible llama.cpp endpoints.
+
+Agent images and `Agentfile` manifests bind to models through the `MODEL` directive. Credentials are referenced by environment variable name instead of being stored in the manifest.
 
 ## Development
 

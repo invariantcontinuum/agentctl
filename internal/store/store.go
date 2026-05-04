@@ -13,23 +13,26 @@ import (
 )
 
 type Instance struct {
-	ID        string       `json:"id"`
-	Name      string       `json:"name"`
-	Type      string       `json:"type"`
-	Status    string       `json:"status"`
-	PID       int          `json:"pid,omitempty"`
-	Config    agent.Config `json:"config"`
-	LogPath   string       `json:"log_path,omitempty"`
-	TracePath string       `json:"trace_path,omitempty"`
-	WorkDir   string       `json:"work_dir"`
-	CreatedAt time.Time    `json:"created_at"`
-	UpdatedAt time.Time    `json:"updated_at"`
+	ID         string       `json:"id"`
+	Name       string       `json:"name"`
+	Image      string       `json:"image,omitempty"`
+	Type       string       `json:"type"`
+	Status     string       `json:"status"`
+	PID        int          `json:"pid,omitempty"`
+	Config     agent.Config `json:"config"`
+	LogPath    string       `json:"log_path,omitempty"`
+	TracePath  string       `json:"trace_path,omitempty"`
+	WorkDir    string       `json:"work_dir"`
+	AutoRemove bool         `json:"auto_remove,omitempty"`
+	CreatedAt  time.Time    `json:"created_at"`
+	UpdatedAt  time.Time    `json:"updated_at"`
 }
 
 type Repository interface {
 	List() ([]Instance, error)
 	Find(id string) (Instance, error)
 	Save(instance Instance) error
+	Delete(id string) error
 }
 
 type JSONRepository struct {
@@ -96,6 +99,28 @@ func (r *JSONRepository) Save(instance Instance) error {
 		state.Instances = append(state.Instances, instance)
 	}
 
+	return r.save(state)
+}
+
+func (r *JSONRepository) Delete(id string) error {
+	state, err := r.load()
+	if err != nil {
+		return err
+	}
+
+	next := state.Instances[:0]
+	deleted := false
+	for _, instance := range state.Instances {
+		if instance.ID == id {
+			deleted = true
+			continue
+		}
+		next = append(next, instance)
+	}
+	if !deleted {
+		return fmt.Errorf("%w: %s", ErrNotFound, id)
+	}
+	state.Instances = next
 	return r.save(state)
 }
 

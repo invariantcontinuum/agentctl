@@ -8,7 +8,9 @@ import (
 func TestParseAgentfile(t *testing.T) {
 	input := `
 AGENT planner-local
+IMAGE planner:latest
 TYPE planner
+MODEL openai default endpoint=https://api.openai.com/v1 auth=api_key credential_env=OPENAI_API_KEY
 SKILL ./skills/planner.md
 MCP search http://localhost:9001/mcp
 VECTOR docs pgvector postgres://localhost:5432/agentctl docs_chunks
@@ -31,6 +33,15 @@ EXEC ["sh", "-c", "echo # not a comment"]
 	}
 	if config.Type != "planner" {
 		t.Fatalf("Type = %q, want planner", config.Type)
+	}
+	if config.Image != "planner:latest" {
+		t.Fatalf("Image = %q, want planner:latest", config.Image)
+	}
+	if config.Model.Provider != "openai" {
+		t.Fatalf("Model provider = %q, want openai", config.Model.Provider)
+	}
+	if config.Model.CredentialEnv != "OPENAI_API_KEY" {
+		t.Fatalf("Model credential env = %q, want OPENAI_API_KEY", config.Model.CredentialEnv)
 	}
 	if got := config.Skills[0].Source; got != "./skills/planner.md" {
 		t.Fatalf("Skill = %q, want ./skills/planner.md", got)

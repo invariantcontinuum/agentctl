@@ -38,6 +38,12 @@ func (ConfigValidator) Validate(config Config) error {
 	if config.Loop.MaxSteps <= 0 {
 		problems = append(problems, "LOOP max_steps must be positive")
 	}
+	if strings.TrimSpace(config.Model.Provider) != "" && strings.TrimSpace(config.Model.Name) == "" {
+		problems = append(problems, "MODEL name is required when provider is set")
+	}
+	if strings.TrimSpace(config.Model.Endpoint) != "" && !validURL(config.Model.Endpoint) {
+		problems = append(problems, "MODEL endpoint is invalid")
+	}
 
 	for _, server := range config.MCPServers {
 		if server.Name == "" {

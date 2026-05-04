@@ -15,7 +15,9 @@ import (
 
 	"github.com/invariantcontinuum/agentctl/internal/agent"
 	"github.com/invariantcontinuum/agentctl/internal/agentfile"
+	"github.com/invariantcontinuum/agentctl/internal/catalog"
 	"github.com/invariantcontinuum/agentctl/internal/driver"
+	"github.com/invariantcontinuum/agentctl/internal/model"
 	"github.com/invariantcontinuum/agentctl/internal/store"
 )
 
@@ -26,6 +28,8 @@ type App struct {
 	validator agent.Validator
 	repo      store.Repository
 	driver    driver.Driver
+	images    catalog.Catalog
+	models    model.Catalog
 	now       func() time.Time
 	paths     func(string) (string, string, error)
 }
@@ -38,6 +42,8 @@ func New(out io.Writer, errOut io.Writer, repo store.Repository, runtimeDriver d
 		validator: agent.ConfigValidator{},
 		repo:      repo,
 		driver:    runtimeDriver,
+		images:    catalog.DefaultCatalog(),
+		models:    model.DefaultCatalog(),
 		now:       time.Now,
 		paths:     runtimePaths,
 	}
@@ -54,7 +60,11 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	case "run":
 		err = a.runAgent(ctx, args[1:])
 	case "ps":
-		err = a.listAgents()
+		err = a.listAgents(ctx, args[1:])
+	case "agents":
+		err = a.agents(ctx, args[1:])
+	case "models":
+		err = a.modelsCommand(args[1:])
 	case "logs":
 		err = a.logs(args[1:])
 	case "stop":
@@ -69,6 +79,10 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		err = a.listSkills(args[1:])
 	case "list-tools":
 		err = a.listTools(args[1:])
+	case "skills":
+		err = a.skills(args[1:])
+	case "tools":
+		err = a.tools(args[1:])
 	case "trace":
 		err = a.trace(args[1:])
 	case "help", "-h", "--help":
@@ -89,30 +103,33 @@ func (a *App) printHelp() {
 	fmt.Fprintln(a.out, "Usage: agentctl <command> [options]")
 	fmt.Fprintln(a.out)
 	fmt.Fprintln(a.out, "Commands:")
-	fmt.Fprintln(a.out, "  run          Start an agent from an Agentfile")
-	fmt.Fprintln(a.out, "  ps           List known agents")
+	fmt.Fprintln(a.out, "  run          Start an agent from an Agentfile or image")
+	fmt.Fprintln(a.out, "  ps           List agents")
+	fmt.Fprintln(a.out, "  agents ls    List agents")
+	fmt.Fprintln(a.out, "  models ls    List model provider definitions")
 	fmt.Fprintln(a.out, "  logs         Print an agent log")
 	fmt.Fprintln(a.out, "  stop         Stop an agent process")
 	fmt.Fprintln(a.out, "  start        Start a stopped agent")
 	fmt.Fprintln(a.out, "  restart      Restart an agent")
 	fmt.Fprintln(a.out, "  inspect      Print agent configuration as JSON")
-	fmt.Fprintln(a.out, "  list-skills  List skills in one or more directories")
-	fmt.Fprintln(a.out, "  list-tools   List configured MCP servers for an agent")
+	fmt.Fprintln(a.out, "  skills ls    List skills in one or more directories")
+	fmt.Fprintln(a.out, "  tools ls     List configured MCP servers for an agent")
 	fmt.Fprintln(a.out, "  trace        Print local lifecycle trace events")
 }
 
 func (a *App) runAgent(ctx context.Context, args []string) error {
 	flags := flag.NewFlagSet("run", flag.ContinueOnError)
 	flags.SetOutput(a.errOut)
-	filePath := flags.String("f", "Agentfile", "Agentfile path")
+	filePath := flags.String("f", "", "Agentfile path")
 	nameOverride := flags.String("name", "", "override agent name")
 	dryRun := flags.Bool("dry-run", false, "parse and validate without starting the agent")
+	autoRemove := flags.Bool("rm", false, "remove recorded agent state after stop")
 	workDir := flags.String("workdir", ".", "agent working directory")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 
-	config, err := a.loadConfig(*filePath)
+	config, err := a.configForRun(*filePath, flags.Args())
 	if err != nil {
 		return err
 	}
@@ -139,17 +156,19 @@ func (a *App) runAgent(ctx context.Context, args []string) error {
 
 	now := a.now().UTC()
 	instance := store.Instance{
-		ID:        id,
-		Name:      config.Name,
-		Type:      config.Type,
-		Status:    string(driver.StatusRunning),
-		PID:       process.PID,
-		Config:    config,
-		LogPath:   logPath,
-		TracePath: tracePath,
-		WorkDir:   *workDir,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:         id,
+		Name:       config.Name,
+		Image:      config.Image,
+		Type:       config.Type,
+		Status:     string(driver.StatusRunning),
+		PID:        process.PID,
+		Config:     config,
+		LogPath:    logPath,
+		TracePath:  tracePath,
+		WorkDir:    *workDir,
+		AutoRemove: *autoRemove,
+		CreatedAt:  now,
+		UpdatedAt:  now,
 	}
 	if err := a.repo.Save(instance); err != nil {
 		return err
@@ -162,25 +181,97 @@ func (a *App) runAgent(ctx context.Context, args []string) error {
 	return nil
 }
 
-func (a *App) listAgents() error {
+func (a *App) configForRun(filePath string, args []string) (agent.Config, error) {
+	if len(args) > 1 {
+		return agent.Config{}, fmt.Errorf("run expects at most one image")
+	}
+	if filePath != "" && len(args) == 1 {
+		return agent.Config{}, fmt.Errorf("run accepts either -f Agentfile or IMAGE, not both")
+	}
+
+	if len(args) == 1 {
+		return a.images.MustConfig(normalizeImageRef(args[0]))
+	}
+
+	if filePath == "" {
+		filePath = "Agentfile"
+	}
+	return a.loadConfig(filePath)
+}
+
+func normalizeImageRef(value string) string {
+	if catalog.IsImageRef(value) {
+		return value
+	}
+	return value + ":latest"
+}
+
+type listOptions struct {
+	all   bool
+	quiet bool
+}
+
+func parseListOptions(command string, args []string, errOut io.Writer) (listOptions, error) {
+	flags := flag.NewFlagSet(command, flag.ContinueOnError)
+	flags.SetOutput(errOut)
+	all := flags.Bool("a", false, "show all agents")
+	quiet := flags.Bool("q", false, "only show IDs")
+	allQuiet := flags.Bool("aq", false, "show all agent IDs")
+	quietAll := flags.Bool("qa", false, "show all agent IDs")
+	if err := flags.Parse(args); err != nil {
+		return listOptions{}, err
+	}
+	if flags.NArg() != 0 {
+		return listOptions{}, fmt.Errorf("%s does not accept positional arguments", command)
+	}
+	options := listOptions{all: *all, quiet: *quiet}
+	if *allQuiet || *quietAll {
+		options.all = true
+		options.quiet = true
+	}
+	return options, nil
+}
+
+func (a *App) listAgents(ctx context.Context, args []string) error {
+	options, err := parseListOptions("ps", args, a.errOut)
+	if err != nil {
+		return err
+	}
+
 	instances, err := a.repo.List()
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(a.out, "%-24s %-16s %-12s %-8s %s\n", "ID", "TYPE", "STATUS", "PID", "SKILLS")
+	if !options.quiet {
+		fmt.Fprintf(a.out, "%-24s %-22s %-14s %-12s %-8s %s\n", "AGENT ID", "IMAGE", "ROLE", "STATUS", "PID", "SKILLS")
+	}
 	for _, instance := range instances {
-		status := instance.Status
-		if instance.PID > 0 {
-			currentStatus, err := a.driver.Status(context.Background(), driver.Process{PID: instance.PID})
-			if err != nil {
-				return err
-			}
-			status = string(currentStatus)
+		status, err := a.instanceStatus(ctx, instance)
+		if err != nil {
+			return err
 		}
-		fmt.Fprintf(a.out, "%-24s %-16s %-12s %-8d %s\n", instance.ID, instance.Type, status, instance.PID, skillList(instance.Config))
+		if !options.all && status != string(driver.StatusRunning) {
+			continue
+		}
+		if options.quiet {
+			fmt.Fprintf(a.out, "%s\n", instance.ID)
+			continue
+		}
+		fmt.Fprintf(a.out, "%-24s %-22s %-14s %-12s %-8d %s\n", instance.ID, displayValue(instance.Image), instance.Type, status, instance.PID, skillList(instance.Config))
 	}
 	return nil
+}
+
+func (a *App) instanceStatus(ctx context.Context, instance store.Instance) (string, error) {
+	if instance.PID <= 0 {
+		return string(driver.StatusStopped), nil
+	}
+	currentStatus, err := a.driver.Status(ctx, driver.Process{PID: instance.PID})
+	if err != nil {
+		return "", err
+	}
+	return string(currentStatus), nil
 }
 
 func (a *App) logs(args []string) error {
@@ -214,10 +305,16 @@ func (a *App) stopAgent(ctx context.Context, args []string) error {
 	now := a.now().UTC()
 	instance.Status = string(driver.StatusStopped)
 	instance.UpdatedAt = now
+	if err := appendTrace(instance.TracePath, now, "stop", fmt.Sprintf("pid=%d", instance.PID)); err != nil {
+		return err
+	}
+	if instance.AutoRemove {
+		return a.repo.Delete(instance.ID)
+	}
 	if err := a.repo.Save(instance); err != nil {
 		return err
 	}
-	return appendTrace(instance.TracePath, now, "stop", fmt.Sprintf("pid=%d", instance.PID))
+	return nil
 }
 
 func (a *App) startAgent(ctx context.Context, args []string) error {
@@ -306,6 +403,43 @@ func (a *App) listSkills(args []string) error {
 		}
 	}
 	return nil
+}
+
+func (a *App) agents(ctx context.Context, args []string) error {
+	if len(args) == 0 || args[0] == "ls" {
+		if len(args) == 0 {
+			return a.listAgents(ctx, nil)
+		}
+		return a.listAgents(ctx, args[1:])
+	}
+	return fmt.Errorf("unknown agents command %q", args[0])
+}
+
+func (a *App) modelsCommand(args []string) error {
+	if len(args) == 0 || args[0] == "ls" {
+		if len(args) > 1 {
+			return fmt.Errorf("models ls does not accept positional arguments")
+		}
+		return a.models.WriteTable(a.out)
+	}
+	return fmt.Errorf("unknown models command %q", args[0])
+}
+
+func (a *App) skills(args []string) error {
+	if len(args) == 0 || args[0] == "ls" {
+		if len(args) == 0 {
+			return a.listSkills(nil)
+		}
+		return a.listSkills(args[1:])
+	}
+	return fmt.Errorf("unknown skills command %q", args[0])
+}
+
+func (a *App) tools(args []string) error {
+	if len(args) == 0 || args[0] != "ls" {
+		return fmt.Errorf("usage: agentctl tools ls <agent-id>")
+	}
+	return a.listTools(args[1:])
 }
 
 func (a *App) listTools(args []string) error {
@@ -402,6 +536,13 @@ func skillList(config agent.Config) string {
 		values = append(values, skill.Source)
 	}
 	return strings.Join(values, ",")
+}
+
+func displayValue(value string) string {
+	if value == "" {
+		return "-"
+	}
+	return value
 }
 
 func appendTrace(path string, when time.Time, event string, detail string) error {
