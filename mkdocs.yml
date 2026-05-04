@@ -24,6 +24,7 @@ nav:
   - Reference:
       - Implemented Commands: reference/commands.md
       - Target API: reference/target-api.md
+      - AgentCompose: reference/agent-compose.md
   - Roadmap:
       - What Exists Now: roadmap/implemented.md
       - What Is Next: roadmap/todo.md

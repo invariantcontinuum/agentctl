@@ -1,0 +1,28 @@
+# Researcher: retrieves context and summarizes findings from knowledge sources.
+# Pairs vector + graph RAG so the same agent can reach docs and the task graph.
+
+IMAGE researcher:latest
+AGENT researcher-local
+TYPE researcher
+
+MODEL llamacpp local endpoint=http://localhost:8102/v1 auth=none
+
+SKILL builtin://skills/researcher
+
+MCP search http://localhost:9001/mcp
+MCP web    http://localhost:9003/mcp
+
+VECTOR docs   pgvector postgres://agentctl:agentctl@localhost:5432/agentctl?sslmode=disable docs_chunks
+GRAPH  tasks  neo4j    bolt://localhost:7687
+
+MEMORY findings long source=docs
+MEMORY session  short window=8000
+
+LOOP react max_steps=24
+
+ENDPOINT http http://127.0.0.1:8089
+
+ENV AGENTCTL_LOG_LEVEL=info
+LABEL owner=knowledge
+
+EXEC ["sh", "-c", "echo researcher-local started; trap 'exit 0' TERM INT; while true; do sleep 60; done"]

@@ -1,0 +1,23 @@
+# Planner: decomposes goals, sequences work, chooses next actions.
+# Run with:  agentctl run -f examples/planner/Agentfile
+
+IMAGE planner:latest
+AGENT planner-local
+TYPE planner
+
+MODEL llamacpp local endpoint=http://localhost:8102/v1 auth=none
+
+SKILL ./skills/planner.md
+
+MCP search http://localhost:9001/mcp
+
+MEMORY plans short window=12000
+
+LOOP react max_steps=30
+
+ENDPOINT http http://127.0.0.1:8088
+
+ENV AGENTCTL_LOG_LEVEL=info
+LABEL owner=platform
+
+EXEC ["sh", "-c", "echo planner-local started; trap 'exit 0' TERM INT; while true; do sleep 60; done"]

@@ -11,10 +11,28 @@ The CLI intentionally follows Docker command shapes:
 ```bash
 agentctl run --rm coder:latest
 agentctl ps -aq
-agentctl agents ls
-agentctl models ls
+agentctl agent ls
+agentctl model ls
 agentctl describe coder-<suffix>
 agentctl rm -f coder-<suffix>
+```
+
+Multi-agent teams compose like Docker services:
+
+```bash
+agentctl compose ls   -f examples/team/AgentCompose
+agentctl compose up   -f examples/team/AgentCompose
+agentctl compose ps   -f examples/team/AgentCompose
+agentctl compose down -f examples/team/AgentCompose
+```
+
+Action and observability commands talk to the agent's MCP and HTTP surfaces:
+
+```bash
+agentctl tool mcp ls coder-<suffix>
+agentctl exec --args '{"q":"agents"}' coder-<suffix> search
+agentctl health planner-<suffix>
+agentctl trace planner-<suffix>
 ```
 
 `network` commands are intentionally not implemented yet; that surface is planned separately.
@@ -163,22 +181,46 @@ agentctl rm -f planner-local-<suffix>
 agentctl agents rm -f planner-local-<suffix>
 ```
 
-List local skills and configured MCP tools:
+List local skills and configured MCP tools (singular and plural both work):
 
 ```bash
-agentctl skills ls ./skills
-agentctl tools ls planner-local-<suffix>
+agentctl skill ls ./skills
+agentctl tool ls planner-local-<suffix>
+agentctl tool mcp ls planner-local-<suffix>
 ```
 
 List model provider definitions:
 
 ```bash
-agentctl models ls
+agentctl model ls
 ```
 
-## Agentfile
+Probe runtime contract and structured trace:
 
-See [docs/agentfile.md](docs/agentfile.md) and the sample [Agentfile](Agentfile).
+```bash
+agentctl health planner-local-<suffix>
+agentctl trace planner-local-<suffix>
+agentctl trace --json planner-local-<suffix>
+```
+
+Inspect knowledge, persistence, and control bindings:
+
+```bash
+agentctl rag ls planner-local-<suffix>
+agentctl memory ls planner-local-<suffix>
+agentctl loop ls
+agentctl loop ps planner-local-<suffix>
+```
+
+## Agentfile and AgentCompose
+
+`Agentfile` describes one agent. See [docs/agentfile.md](docs/agentfile.md) and
+the sample [Agentfile](Agentfile). Per-role examples live under
+[examples/](examples/).
+
+`AgentCompose` describes a team of agents. See
+[docs/reference/agent-compose.md](docs/reference/agent-compose.md) and the
+sample [examples/team/AgentCompose](examples/team/AgentCompose).
 
 ## Capability Taxonomy
 

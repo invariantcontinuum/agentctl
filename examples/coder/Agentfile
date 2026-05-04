@@ -1,0 +1,25 @@
+# Coder: edits code, runs checks, reports implementation results.
+
+IMAGE coder:latest
+AGENT coder-local
+TYPE coder
+
+MODEL anthropic default endpoint=https://api.anthropic.com auth=api_key credential_env=ANTHROPIC_API_KEY
+
+SKILL builtin://skills/coder
+
+MCP shell http://localhost:9011/mcp
+MCP fs    http://localhost:9012/mcp
+
+VECTOR code pgvector postgres://agentctl:agentctl@localhost:5432/agentctl?sslmode=disable code_chunks
+
+MEMORY scratchpad short window=16000
+
+LOOP react max_steps=40
+
+ENDPOINT http http://127.0.0.1:8090
+
+ENV AGENTCTL_LOG_LEVEL=info
+LABEL owner=delivery
+
+EXEC ["sh", "-c", "echo coder-local started; trap 'exit 0' TERM INT; while true; do sleep 60; done"]

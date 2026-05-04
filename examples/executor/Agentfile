@@ -1,0 +1,23 @@
+# Executor: runs bounded operational tasks and tool-driven workflows.
+
+IMAGE executor:latest
+AGENT executor-local
+TYPE executor
+
+MODEL openai default endpoint=https://api.openai.com/v1 auth=api_key credential_env=OPENAI_API_KEY
+
+SKILL builtin://skills/executor
+
+MCP shell http://localhost:9011/mcp
+MCP http  http://localhost:9014/mcp
+
+MEMORY runlog short window=4000
+
+LOOP react max_steps=12
+
+ENDPOINT http http://127.0.0.1:8092
+
+ENV AGENTCTL_LOG_LEVEL=info
+LABEL owner=ops
+
+EXEC ["sh", "-c", "echo executor-local started; trap 'exit 0' TERM INT; while true; do sleep 60; done"]

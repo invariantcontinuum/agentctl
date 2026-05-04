@@ -1,0 +1,28 @@
+# Coordinator: coordinates multi-agent delegation and completion criteria.
+# Talks to peers via the loopback ENDPOINT entries declared in their Agentfiles.
+
+IMAGE coordinator:latest
+AGENT coordinator-local
+TYPE coordinator
+
+MODEL anthropic default endpoint=https://api.anthropic.com auth=api_key credential_env=ANTHROPIC_API_KEY
+
+SKILL builtin://skills/coordinator
+
+MCP delegation http://localhost:9020/mcp
+
+MEMORY plans long source=tasks
+
+LOOP react max_steps=60
+
+ENDPOINT http      http://127.0.0.1:8093
+ENDPOINT planner   http://127.0.0.1:8088
+ENDPOINT researcher http://127.0.0.1:8089
+ENDPOINT coder     http://127.0.0.1:8090
+ENDPOINT reviewer  http://127.0.0.1:8091
+ENDPOINT executor  http://127.0.0.1:8092
+
+ENV AGENTCTL_LOG_LEVEL=info
+LABEL owner=orchestration
+
+EXEC ["sh", "-c", "echo coordinator-local started; trap 'exit 0' TERM INT; while true; do sleep 60; done"]

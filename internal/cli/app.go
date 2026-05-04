@@ -17,36 +17,46 @@ import (
 	"github.com/invariantcontinuum/agentctl/internal/agent"
 	"github.com/invariantcontinuum/agentctl/internal/agentfile"
 	"github.com/invariantcontinuum/agentctl/internal/catalog"
+	"github.com/invariantcontinuum/agentctl/internal/compose"
 	"github.com/invariantcontinuum/agentctl/internal/driver"
+	"github.com/invariantcontinuum/agentctl/internal/health"
+	"github.com/invariantcontinuum/agentctl/internal/mcp"
 	"github.com/invariantcontinuum/agentctl/internal/model"
 	"github.com/invariantcontinuum/agentctl/internal/store"
+	"github.com/invariantcontinuum/agentctl/internal/trace"
 )
 
 type App struct {
-	out       io.Writer
-	errOut    io.Writer
-	parser    agentfile.Parser
-	validator agent.Validator
-	repo      store.Repository
-	driver    driver.Driver
-	images    catalog.Catalog
-	models    model.Catalog
-	now       func() time.Time
-	paths     func(string) (string, string, error)
+	out            io.Writer
+	errOut         io.Writer
+	parser         agentfile.Parser
+	composeParser  compose.Parser
+	validator      agent.Validator
+	repo           store.Repository
+	driver         driver.Driver
+	images         catalog.Catalog
+	models         model.Catalog
+	now            func() time.Time
+	paths          func(string) (string, string, error)
+	healthProbeFor func(string) *health.Probe
+	mcpClientFor   func(string) *mcp.Client
 }
 
 func New(out io.Writer, errOut io.Writer, repo store.Repository, runtimeDriver driver.Driver) *App {
 	return &App{
-		out:       out,
-		errOut:    errOut,
-		parser:    agentfile.NewParser(),
-		validator: agent.ConfigValidator{},
-		repo:      repo,
-		driver:    runtimeDriver,
-		images:    catalog.DefaultCatalog(),
-		models:    model.DefaultCatalog(),
-		now:       time.Now,
-		paths:     runtimePaths,
+		out:            out,
+		errOut:         errOut,
+		parser:         agentfile.NewParser(),
+		composeParser:  compose.NewParser(),
+		validator:      agent.ConfigValidator{},
+		repo:           repo,
+		driver:         runtimeDriver,
+		images:         catalog.DefaultCatalog(),
+		models:         model.DefaultCatalog(),
+		now:            time.Now,
+		paths:          runtimePaths,
+		healthProbeFor: func(string) *health.Probe { return health.NewProbe(5*time.Second, 0) },
+		mcpClientFor:   func(string) *mcp.Client { return mcp.NewClient(10 * time.Second) },
 	}
 }
 
@@ -62,9 +72,9 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		err = a.runAgent(ctx, args[1:])
 	case "ps":
 		err = a.listAgents(ctx, args[1:])
-	case "agents":
+	case "agent", "agents":
 		err = a.agents(ctx, args[1:])
-	case "models":
+	case "model", "models":
 		err = a.modelsCommand(args[1:])
 	case "logs":
 		err = a.logs(args[1:])
@@ -84,12 +94,26 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		err = a.listSkills(args[1:])
 	case "list-tools":
 		err = a.listTools(args[1:])
-	case "skills":
+	case "skill", "skills":
 		err = a.skills(args[1:])
-	case "tools":
-		err = a.tools(args[1:])
+	case "tool", "tools":
+		err = a.tools(ctx, args[1:])
 	case "trace":
 		err = a.trace(args[1:])
+	case "compose":
+		err = a.compose(ctx, args[1:])
+	case "exec":
+		err = a.exec(ctx, args[1:])
+	case "health":
+		err = a.health(ctx, args[1:])
+	case "rag":
+		err = a.rag(args[1:])
+	case "memory":
+		err = a.memory(args[1:])
+	case "loop":
+		err = a.loop(ctx, args[1:])
+	case "guard":
+		err = a.guard(args[1:])
 	case "help", "-h", "--help":
 		a.printHelp()
 		return 0
@@ -107,11 +131,9 @@ func (a *App) Run(ctx context.Context, args []string) int {
 func (a *App) printHelp() {
 	fmt.Fprintln(a.out, "Usage: agentctl <command> [options]")
 	fmt.Fprintln(a.out)
-	fmt.Fprintln(a.out, "Commands:")
+	fmt.Fprintln(a.out, "Lifecycle:")
 	fmt.Fprintln(a.out, "  run          Start an agent from an Agentfile or image")
 	fmt.Fprintln(a.out, "  ps           List agents")
-	fmt.Fprintln(a.out, "  agents ls    List agents")
-	fmt.Fprintln(a.out, "  models ls    List model provider definitions")
 	fmt.Fprintln(a.out, "  logs         Print an agent log")
 	fmt.Fprintln(a.out, "  rm           Remove stopped agent state")
 	fmt.Fprintln(a.out, "  stop         Stop an agent process")
@@ -119,9 +141,29 @@ func (a *App) printHelp() {
 	fmt.Fprintln(a.out, "  restart      Restart an agent")
 	fmt.Fprintln(a.out, "  inspect      Print agent configuration as JSON")
 	fmt.Fprintln(a.out, "  describe     Print human-readable agent details")
-	fmt.Fprintln(a.out, "  skills ls    List skills in one or more directories")
-	fmt.Fprintln(a.out, "  tools ls     List configured MCP servers for an agent")
-	fmt.Fprintln(a.out, "  trace        Print local lifecycle trace events")
+	fmt.Fprintln(a.out, "  trace        Print structured lifecycle and reasoning events")
+	fmt.Fprintln(a.out, "  exec         Invoke a tool against a running agent's MCP endpoint")
+	fmt.Fprintln(a.out, "  health       Probe /health, /status, /tasks for an agent")
+	fmt.Fprintln(a.out)
+	fmt.Fprintln(a.out, "Compose:")
+	fmt.Fprintln(a.out, "  compose ls   List compose services")
+	fmt.Fprintln(a.out, "  compose up   Start every agent declared in an AgentCompose file")
+	fmt.Fprintln(a.out, "  compose down Stop and remove every agent in an AgentCompose file")
+	fmt.Fprintln(a.out, "  compose ps   List running compose services")
+	fmt.Fprintln(a.out)
+	fmt.Fprintln(a.out, "Management:")
+	fmt.Fprintln(a.out, "  agent ls     Grouped form of ps")
+	fmt.Fprintln(a.out, "  model ls     List model provider definitions")
+	fmt.Fprintln(a.out, "  skill ls     List skills in one or more directories")
+	fmt.Fprintln(a.out, "  tool ls      List configured MCP servers for an agent")
+	fmt.Fprintln(a.out, "  tool mcp ls  Discover MCP tool schemas for an agent")
+	fmt.Fprintln(a.out, "  tool exec    Run an MCP tool against an agent")
+	fmt.Fprintln(a.out)
+	fmt.Fprintln(a.out, "Knowledge / Persistence / Control:")
+	fmt.Fprintln(a.out, "  rag ls       List RAG sources for an agent (vector + graph)")
+	fmt.Fprintln(a.out, "  memory ls    List memory bindings for an agent")
+	fmt.Fprintln(a.out, "  loop ls      Show loop strategy and limits")
+	fmt.Fprintln(a.out, "  guard ls     Show configured guardrails (planned)")
 }
 
 func (a *App) runAgent(ctx context.Context, args []string) error {
@@ -180,7 +222,13 @@ func (a *App) runAgent(ctx context.Context, args []string) error {
 	if err := a.repo.Save(instance); err != nil {
 		return err
 	}
-	if err := appendTrace(tracePath, now, "run", fmt.Sprintf("pid=%d", process.PID)); err != nil {
+	if err := a.writeTrace(tracePath, trace.Event{
+		Time:   now,
+		Kind:   trace.KindRun,
+		Agent:  id,
+		Detail: fmt.Sprintf("pid=%d", process.PID),
+		Fields: map[string]string{"workdir": *workDir},
+	}); err != nil {
 		return err
 	}
 
@@ -312,7 +360,12 @@ func (a *App) stopAgent(ctx context.Context, args []string) error {
 	now := a.now().UTC()
 	instance.Status = string(driver.StatusStopped)
 	instance.UpdatedAt = now
-	if err := appendTrace(instance.TracePath, now, "stop", fmt.Sprintf("pid=%d", instance.PID)); err != nil {
+	if err := a.writeTrace(instance.TracePath, trace.Event{
+		Time:   now,
+		Kind:   trace.KindStop,
+		Agent:  instance.ID,
+		Detail: fmt.Sprintf("pid=%d", instance.PID),
+	}); err != nil {
 		return err
 	}
 	if instance.AutoRemove {
@@ -366,7 +419,12 @@ func (a *App) startExisting(ctx context.Context, instance store.Instance) error 
 	if err := a.repo.Save(instance); err != nil {
 		return err
 	}
-	if err := appendTrace(instance.TracePath, now, "start", fmt.Sprintf("pid=%d", process.PID)); err != nil {
+	if err := a.writeTrace(instance.TracePath, trace.Event{
+		Time:   now,
+		Kind:   trace.KindStart,
+		Agent:  instance.ID,
+		Detail: fmt.Sprintf("pid=%d", process.PID),
+	}); err != nil {
 		return err
 	}
 	fmt.Fprintf(a.out, "%s\n", instance.ID)
@@ -517,11 +575,19 @@ func (a *App) skills(args []string) error {
 	return fmt.Errorf("unknown skills command %q", args[0])
 }
 
-func (a *App) tools(args []string) error {
-	if len(args) == 0 || args[0] != "ls" {
-		return fmt.Errorf("usage: agentctl tools ls <agent-id>")
+func (a *App) tools(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("usage: agentctl tool <ls|mcp|exec> ...")
 	}
-	return a.listTools(args[1:])
+	switch args[0] {
+	case "ls":
+		return a.listTools(args[1:])
+	case "mcp":
+		return a.toolMCP(ctx, args[1:])
+	case "exec":
+		return a.toolExec(ctx, args[1:])
+	}
+	return fmt.Errorf("unknown tool command %q", args[0])
 }
 
 func (a *App) listTools(args []string) error {
@@ -544,7 +610,13 @@ func (a *App) listTools(args []string) error {
 }
 
 func (a *App) trace(args []string) error {
-	id, err := requiredID("trace", args)
+	flags := flag.NewFlagSet("trace", flag.ContinueOnError)
+	flags.SetOutput(a.errOut)
+	jsonOutput := flags.Bool("json", false, "emit raw JSON-Lines trace events")
+	if err := flags.Parse(args); err != nil {
+		return err
+	}
+	id, err := requiredID("trace", flags.Args())
 	if err != nil {
 		return err
 	}
@@ -555,7 +627,10 @@ func (a *App) trace(args []string) error {
 	if instance.TracePath == "" {
 		return fmt.Errorf("agent %s has no trace path", id)
 	}
-	return printFile(a.out, instance.TracePath)
+	if *jsonOutput {
+		return printFile(a.out, instance.TracePath)
+	}
+	return trace.CopyHumanLines(a.out, instance.TracePath)
 }
 
 func (a *App) removeAgents(ctx context.Context, args []string) error {
@@ -589,7 +664,12 @@ func (a *App) removeAgents(ctx context.Context, args []string) error {
 				return err
 			}
 			now := a.now().UTC()
-			if err := appendTrace(instance.TracePath, now, "rm", fmt.Sprintf("forced pid=%d", instance.PID)); err != nil {
+			if err := a.writeTrace(instance.TracePath, trace.Event{
+				Time:   now,
+				Kind:   trace.KindRemove,
+				Agent:  instance.ID,
+				Detail: fmt.Sprintf("forced pid=%d", instance.PID),
+			}); err != nil {
 				return err
 			}
 		}
@@ -816,18 +896,9 @@ func removeFiles(paths ...string) error {
 	return nil
 }
 
-func appendTrace(path string, when time.Time, event string, detail string) error {
+func (a *App) writeTrace(path string, event trace.Event) error {
 	if path == "" {
 		return nil
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	_, err = fmt.Fprintf(file, "%s %s %s\n", when.UTC().Format(time.RFC3339Nano), event, detail)
-	return err
+	return trace.NewFileWriter(path).Write(event)
 }

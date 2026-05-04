@@ -1,55 +1,43 @@
 # What Is Next
 
-This page tracks planned work. It should be updated whenever implementation lands.
+This page tracks planned work. It should be updated whenever implementation
+lands.
 
 ## High Priority
 
-- Add `agent` singular management namespace while preserving Docker-like top-level aliases.
-- Add `exec` for running a tool or step in an agent context.
-- Add structured trace events for plan, RAG, tool, memory, guard, reflection, and delegation.
-- Add runtime health probing for `/health`, `/status`, and `/tasks`.
-- Add MCP discovery for tool schemas.
-- Add model provider config files and provider inspection.
+- Live runtime status integration: have `loop ps` query the agent's `/status`
+  endpoint instead of only printing recorded configuration.
+- Promote `health` reports into `describe` output when an ENDPOINT is set.
+- `model` provider config files on disk and provider inspection.
+- Stream traces (`agentctl trace -f <id>`) instead of single-shot dump.
 
 ## Knowledge
 
-- `rag ls`
-- `rag vector ls`
-- `rag graph ls`
-- `rag run "query"`
-- `rag trace <id>`
-- Retrieval hit rates and embedding stats.
+- `rag run "query"` against the agent's MCP retrieval tool.
+- `rag trace <id>` filtered to `kind=rag` events.
+- Retrieval hit rates and embedding stats sourced from `/status`.
 
 ## Action
 
-- `tool ls`
-- `tool mcp ls`
-- `tool exec <agent> <tool> ...`
-- Tool latency and tool result trace.
+- Tool latency histograms via `tool trace <agent>`.
+- Tool result schema validation against MCP `inputSchema`.
 
 ## Persistence
 
-- `memory ls`
-- `memory short ls`
-- `memory long ls`
-- `memory dump <agent>`
-- `memory recall <agent> "key"`
+- Live runtime memory inspection via the agent runtime contract; today's
+  `memory dump`/`recall` only return configured bindings.
 
 ## Control
 
-- `loop ls`
-- `loop ps <agent>`
-- `loop trace <agent>`
-- `guard ls <agent>`
+- Agentfile `GUARD` directive plus `guard ls` populated from configured rules.
 - Evaluation and completion criteria.
 
 ## Specialization
 
-- Skill registry.
-- Agent image registry.
-- Multi-agent teams.
-- `agent compose up`.
+- Skill registry on disk (durable, queryable).
+- Agent image registry beyond the in-memory default catalog.
 
 ## Deferred
 
-- Network commands. Do not implement `network ls` or related network surface until the network model is explicitly designed.
+- Network commands. Do not implement `network ls` or related network surface
+  until the network model is explicitly designed.

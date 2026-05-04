@@ -2,13 +2,13 @@
 
 This page documents what is implemented today.
 
-## Common Commands
+## Lifecycle
 
 ```bash
 agentctl run [-f Agentfile] [--dry-run] [--rm] [--name name] [--workdir dir] [image]
 agentctl ps [-a] [-q] [-aq]
 agentctl logs <agent-id>
-agentctl trace <agent-id>
+agentctl trace [--json] <agent-id>
 agentctl inspect <agent-id>
 agentctl describe <agent-id>
 agentctl stop <agent-id>
@@ -17,38 +17,78 @@ agentctl restart <agent-id>
 agentctl rm [-f|--force] <agent-id>...
 ```
 
-## Grouped Commands
+## Compose
 
 ```bash
-agentctl agents ls [-a] [-q] [-aq]
-agentctl agents describe <agent-id>
-agentctl agents rm [-f|--force] <agent-id>...
-agentctl models ls
-agentctl skills ls [directory...]
-agentctl tools ls <agent-id>
+agentctl compose ls   [-f path]
+agentctl compose up   [-f path] [--dry-run]
+agentctl compose down [-f path]
+agentctl compose ps   [-f path]
 ```
 
-## Aliases Retained for Compatibility During Early Development
+## Action
+
+```bash
+agentctl tool ls <agent-id>
+agentctl tool mcp ls <agent-id>
+agentctl tool exec [--server NAME] [--args JSON] <agent-id> <tool>
+agentctl exec [--server NAME] [--args JSON] <agent-id> <tool>
+```
+
+## Knowledge / Persistence / Control
+
+```bash
+agentctl rag ls <agent-id>
+agentctl rag vector ls <agent-id>
+agentctl rag graph ls <agent-id>
+
+agentctl memory ls <agent-id>
+agentctl memory short ls <agent-id>
+agentctl memory long ls <agent-id>
+agentctl memory dump <agent-id>
+agentctl memory recall <agent-id> <key>
+
+agentctl loop ls
+agentctl loop ps <agent-id>
+agentctl loop trace <agent-id>
+agentctl guard ls <agent-id>
+```
+
+## Health
+
+```bash
+agentctl health [--url URL] [--json] <agent-id>
+```
+
+## Management Aliases
+
+Singular and plural noun groups both work:
+
+```bash
+agentctl agent ls   |  agentctl agents ls
+agentctl model ls   |  agentctl models ls
+agentctl skill ls   |  agentctl skills ls
+agentctl tool ls    |  agentctl tools ls
+```
+
+## Compatibility Shims
 
 ```bash
 agentctl list-skills [directory...]
 agentctl list-tools <agent-id>
 ```
 
-The long-term API should prefer noun groups: `skill`, `model`, `rag`, `memory`, `tool`, `loop`, `guard`, and `agent`.
-
 ## Not Implemented Yet
 
-These are target commands, not current commands:
+These are target commands, not current commands. See `docs/roadmap/todo.md`
+for the planned next steps:
 
 ```bash
-agentctl exec ...
+agentctl rag run "query"
+agentctl rag trace <id>
+agentctl tool trace <agent>
 agentctl stats
-agentctl compose up
-agentctl rag ...
-agentctl memory ...
-agentctl loop ...
-agentctl guard ...
 ```
 
-`network` commands are intentionally omitted until the network model is designed.
+`network` commands are intentionally omitted until the network model is
+designed.

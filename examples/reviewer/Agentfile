@@ -1,0 +1,23 @@
+# Reviewer: reviews changes for correctness, risks, and missing tests.
+
+IMAGE reviewer:latest
+AGENT reviewer-local
+TYPE reviewer
+
+MODEL anthropic default endpoint=https://api.anthropic.com auth=api_key credential_env=ANTHROPIC_API_KEY
+
+SKILL builtin://skills/reviewer
+
+MCP fs   http://localhost:9012/mcp
+MCP test http://localhost:9013/mcp
+
+MEMORY findings short window=12000
+
+LOOP react max_steps=20
+
+ENDPOINT http http://127.0.0.1:8091
+
+ENV AGENTCTL_LOG_LEVEL=info
+LABEL owner=quality
+
+EXEC ["sh", "-c", "echo reviewer-local started; trap 'exit 0' TERM INT; while true; do sleep 60; done"]

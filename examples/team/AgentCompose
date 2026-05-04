@@ -1,0 +1,14 @@
+# Multi-agent compose: a coordinator hands work to specialists.
+# Run with:  agentctl compose up -f examples/team/AgentCompose
+#
+# Service order is computed from DEPENDS_ON. The order below is intentionally
+# scrambled so 'agentctl compose ls' demonstrates topological sort.
+
+COMPOSE delivery-team
+
+AGENT reviewer    FILE=../reviewer/Agentfile     DEPENDS_ON=coder
+AGENT planner     FILE=../planner/Agentfile
+AGENT researcher  FILE=../researcher/Agentfile   DEPENDS_ON=planner
+AGENT coder       FILE=../coder/Agentfile        DEPENDS_ON=planner,researcher
+AGENT executor    FILE=../executor/Agentfile     DEPENDS_ON=coder
+AGENT coordinator FILE=../coordinator/Agentfile  DEPENDS_ON=planner,researcher,coder,reviewer,executor
