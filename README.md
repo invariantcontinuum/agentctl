@@ -1,6 +1,6 @@
 # agentctl
 
-`agentctl` is a Docker-style control CLI for long-running AI agents. The first implementation slice is deliberately small: a Go standard-library CLI that parses an `Agentfile`, starts a local agent process, stores instance state, and exposes lifecycle commands that can later be backed by Docker, Podman, Kubernetes, or systemd drivers.
+`agentctl` is a Docker-style control CLI for long-running AI agents. The first implementation slice is deliberately small: a Go 1.26.2 standard-library CLI that parses an `Agentfile`, starts a local agent process, stores instance state, and exposes lifecycle commands that can later be backed by Docker, Podman, Kubernetes, or systemd drivers.
 
 ## Current Scope
 
@@ -12,6 +12,8 @@
 - CLI commands for `run`, `ps`, `logs`, `stop`, `start`, `restart`, `inspect`, `list-skills`, `list-tools`, and `trace`.
 
 ## Build
+
+Requires Go 1.26.2.
 
 ```bash
 make build
