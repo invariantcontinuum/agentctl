@@ -1,0 +1,148 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "SemVer bump to create from the latest vX.Y.Z tag"
+        type: choice
+        required: true
+        default: patch
+        options:
+          - major
+          - minor
+          - patch
+      draft:
+        description: "Create the GitHub release as a draft"
+        type: boolean
+        required: true
+        default: false
+      prerelease:
+        description: "Mark the GitHub release as a prerelease"
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    name: Build and Publish Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm zip
+
+      - name: Determine release tag
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            tag="${GITHUB_REF_NAME}"
+          else
+            latest="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)"
+            latest="${latest:-v0.0.0}"
+            version="${latest#v}"
+            IFS=. read -r major minor patch <<<"$version"
+
+            case "${{ inputs.bump }}" in
+              major)
+                major=$((major + 1))
+                minor=0
+                patch=0
+                ;;
+              minor)
+                minor=$((minor + 1))
+                patch=0
+                ;;
+              patch)
+                patch=$((patch + 1))
+                ;;
+              *)
+                echo "unknown bump: ${{ inputs.bump }}" >&2
+                exit 1
+                ;;
+            esac
+
+            tag="v${major}.${minor}.${patch}"
+            if git rev-parse "$tag" >/dev/null 2>&1; then
+              echo "tag already exists: $tag" >&2
+              exit 1
+            fi
+
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$tag" -m "Release $tag"
+            git push origin "$tag"
+          fi
+
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "release tag must match vX.Y.Z: $tag" >&2
+            exit 1
+          fi
+
+          echo "tag=$tag" >>"$GITHUB_OUTPUT"
+          echo "version=${tag#v}" >>"$GITHUB_OUTPUT"
+
+      - name: Run checks
+        run: |
+          make fmt-check
+          make lint
+          make test
+
+      - name: Build release assets
+        run: scripts/release-build.sh "${{ steps.version.outputs.version }}" dist
+
+      - name: Generate release SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          path: dist
+          format: spdx-json
+          output-file: dist/agentctl_${{ steps.version.outputs.version }}_sbom.spdx.json
+          artifact-name: agentctl-release-sbom.spdx.json
+          upload-release-assets: false
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          DRAFT: ${{ inputs.draft || false }}
+          PRERELEASE: ${{ inputs.prerelease || false }}
+        run: |
+          set -euo pipefail
+
+          flags=()
+          if [[ "$DRAFT" == "true" ]]; then
+            flags+=(--draft)
+          fi
+          if [[ "$PRERELEASE" == "true" ]]; then
+            flags+=(--prerelease)
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "agentctl $TAG" --notes "agentctl $TAG" "${flags[@]}"
+          else
+            gh release create "$TAG" --title "agentctl $TAG" --notes "agentctl $TAG" "${flags[@]}"
+          fi
+
+          gh release upload "$TAG" dist/* --clobber

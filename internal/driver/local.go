@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"syscall"
 
 	"github.com/invariantcontinuum/agentctl/internal/agent"
 )
@@ -51,14 +50,18 @@ func (Local) Stop(_ context.Context, process Process) error {
 	if process.PID <= 0 {
 		return fmt.Errorf("pid must be positive")
 	}
-	return syscall.Kill(process.PID, syscall.SIGTERM)
+	return signalStop(process.PID)
 }
 
 func (Local) Status(_ context.Context, process Process) (Status, error) {
 	if process.PID <= 0 {
 		return StatusStopped, nil
 	}
-	if err := syscall.Kill(process.PID, 0); err != nil {
+	running, err := processAlive(process.PID)
+	if err != nil {
+		return StatusStopped, err
+	}
+	if !running {
 		return StatusStopped, nil
 	}
 	return StatusRunning, nil

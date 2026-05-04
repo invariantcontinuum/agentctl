@@ -1,4 +1,5 @@
 /agentctl
 /bin/
 /coverage.out
+/dist/
 /.agentctl/
