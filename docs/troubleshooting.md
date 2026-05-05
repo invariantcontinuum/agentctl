@@ -75,6 +75,15 @@ Configure:
 - `SONAR_TOKEN` as a repository secret.
 - `SONAR_HOST_URL` as a repository variable when using SonarQube Server instead of SonarCloud.
 
+## Documentation Deploy Fails
+
+The `Deploy Documentation` workflow runs `mkdocs build --strict` and deploys
+the generated `site/` artifact through GitHub Pages. Check:
+
+- GitHub Pages is configured to use GitHub Actions as the source.
+- The workflow has `pages: write` and `id-token: write` permissions.
+- `mkdocs.yml` navigation includes every referenced page.
+
 ## Model Credentials
 
 `Agentfile` should reference credential environment variable names, not raw secrets.

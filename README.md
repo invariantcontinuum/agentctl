@@ -291,7 +291,7 @@ make build
 
 ## CI and Releases
 
-CI runs formatting checks, `go vet`, tests with coverage, build, SonarQube/SonarCloud analysis, Syft SBOM generation, and Grype CVE scanning.
+CI runs formatting checks, `go vet`, tests with coverage, build, SonarQube/SonarCloud analysis, Syft SBOM generation, and Grype CVE scanning. Documentation deploys through the `Deploy Documentation` workflow, which builds MkDocs with `mkdocs build --strict` and publishes the `site/` artifact to GitHub Pages.
 
 Required repository configuration:
 
