@@ -68,17 +68,11 @@ Full release packaging needs `rpmbuild`.
 
 Install RPM tooling for local `.rpm` builds, or rely on the release workflow, which installs the required packaging tools.
 
-## Sonar Scan Fails in CI
-
-Configure:
-
-- `SONAR_TOKEN` as a repository secret.
-- `SONAR_HOST_URL` as a repository variable when using SonarQube Server instead of SonarCloud.
-
 ## Documentation Deploy Fails
 
-The `Deploy Documentation` workflow runs `mkdocs build --strict` and deploys
-the generated `site/` artifact through GitHub Pages. Check:
+The `Deploy Documentation` workflow installs `mkdocs-material`, runs
+`mkdocs build --strict`, and deploys the generated `site/` artifact through
+GitHub Pages. Check:
 
 - GitHub Pages is configured to use GitHub Actions as the source.
 - The workflow has `pages: write` and `id-token: write` permissions.

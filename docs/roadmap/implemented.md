@@ -98,8 +98,7 @@
 ## CI and Release
 
 - Formatting, vet, test, build.
-- Sonar scan configuration.
 - Syft SBOM workflow.
 - Grype CVE scan workflow.
-- GitHub Pages documentation deployment workflow for the MkDocs site.
+- GitHub Pages documentation deployment workflow for the Squidfunk Material for MkDocs site.
 - Release workflow for archives, `.deb`, `.rpm`, checksums, and release SBOM.

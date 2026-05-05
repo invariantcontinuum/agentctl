@@ -60,7 +60,7 @@ MCP fs     stdio npx -y @modelcontextprotocol/server-filesystem /tmp
 
 ## Documentation
 
-The MkDocs source lives in [docs](docs/index.md), with [mkdocs.yml](mkdocs.yml) defining the navigation. Start with:
+The Material for MkDocs source lives in [docs](docs/index.md), with [mkdocs.yml](mkdocs.yml) defining the navigation. Start with:
 
 - [Quickstart](docs/quickstart.md) for the current local runtime flow.
 - [Implemented Commands](docs/reference/commands.md) for the CLI surface available today.
@@ -291,11 +291,6 @@ make build
 
 ## CI and Releases
 
-CI runs formatting checks, `go vet`, tests with coverage, build, SonarQube/SonarCloud analysis, Syft SBOM generation, and Grype CVE scanning. Documentation deploys through the `Deploy Documentation` workflow, which builds MkDocs with `mkdocs build --strict` and publishes the `site/` artifact to GitHub Pages.
-
-Required repository configuration:
-
-- Secret `SONAR_TOKEN` for SonarQube/SonarCloud analysis.
-- Optional variable `SONAR_HOST_URL`; defaults can be handled by SonarCloud, but set it for SonarQube Server.
+CI runs formatting checks, `go vet`, tests, build, Syft SBOM generation, and Grype CVE scanning. Documentation deploys through the `Deploy Documentation` workflow, which builds the Squidfunk Material for MkDocs site with `mkdocs build --strict` and publishes the `site/` artifact to GitHub Pages.
 
 Releases can be created by pushing a `vX.Y.Z` tag or by manually running the release workflow with `major`, `minor`, or `patch` bump input. Release assets include checksums, SBOM, archives, `.deb`, and `.rpm` packages.

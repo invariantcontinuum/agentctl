@@ -5,7 +5,22 @@ repo_url: https://github.com/invariantcontinuum/agentctl
 edit_uri: edit/main/docs/
 
 theme:
-  name: mkdocs
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.action.edit
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: black
+      accent: blue
+    - scheme: slate
+      primary: black
+      accent: blue
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
 
 nav:
   - Introduction: index.md
