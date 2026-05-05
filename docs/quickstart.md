@@ -17,6 +17,14 @@ This produces two binaries: `bin/agentctl` (the CLI) and `bin/agentd`
 
 This prints the parsed agent config as JSON without spawning a process.
 
+The sample uses the current canonical directive names:
+
+```text
+MODEL vllm local base_url=http://localhost:8000/v1 auth=none
+MEMORY session short inmemory limit=12000
+ENDPOINT http http://127.0.0.1:8088
+```
+
 ## Start an Agent from a Role Image
 
 ```bash
@@ -77,6 +85,7 @@ auth login` are injected into the agent before launch.
 ```
 
 The current trace file records lifecycle events. The target runtime will include planning, RAG, tool, memory, reflection, guard, and delegation events.
+CLI-driven tool execution and health probes also write trace events.
 
 ## Stop or Remove
 

@@ -2,7 +2,9 @@
 
 ## Is `agentctl` production-ready?
 
-No. The project is pre-MVP. The current implementation is a local-process control-plane skeleton and documentation foundation.
+No. The project is pre-MVP. The current implementation is a local-process
+control plane with a bundled `agentd` runtime, but the richer network, session,
+guard, live RAG, and live memory surfaces are still roadmap items.
 
 ## Why use Docker-like commands?
 
@@ -18,7 +20,10 @@ Not yet. It lists provider definitions and local endpoint bindings. Provider-spe
 
 ## Where do secrets go?
 
-Secrets should be environment variables or future credential store entries. `Agentfile` should reference names such as `OPENAI_API_KEY`, not contain secret values.
+Secrets go in the credentials store via `agentctl model <provider> auth login`
+or in the process environment. `Agentfile` references env names such as
+`OPENAI_API_KEY` through `api_key_env`; it should not contain raw secret
+values.
 
 ## What is the difference between `inspect` and `describe`?
 
@@ -26,7 +31,9 @@ Secrets should be environment variables or future credential store entries. `Age
 
 ## What is the difference between `trace` and `logs`?
 
-`logs` prints process output. `trace` prints structured lifecycle events today and should eventually print planning, RAG, tool, memory, guard, and delegation events.
+`logs` prints process output. `trace` prints structured lifecycle, tool, and
+health events today; deeper planning, RAG, memory, guard, and delegation events
+are target runtime surfaces.
 
 ## Does `--rm` behave like Docker?
 
@@ -34,4 +41,6 @@ It follows the same intent. If an agent is started with `--rm`, stopping it remo
 
 ## What is the target command family?
 
-The target families are `agent`, `skill`, `model`, `rag`, `memory`, `tool`, `loop`, and `guard`.
+The implemented families are `agent`, `skill`, `model`, `rag`, `memory`,
+`tool`, `loop`, and `guard`. Some commands in those families are placeholders
+or metadata-only until the runtime contract grows.

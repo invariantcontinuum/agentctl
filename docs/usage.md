@@ -89,6 +89,8 @@ agentctl tool ls    |  agentctl tools ls
 
 ## Compatibility Shims
 
+These aliases are implemented for older command names and simple discovery:
+
 ```bash
 agentctl list-skills [directory...]
 agentctl list-tools <agent-id>

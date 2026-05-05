@@ -26,6 +26,21 @@ child process environment before launch.
 ## Agentfile Configuration
 
 `Agentfile` is the canonical manifest for local agent process configuration.
+It parses into `agent.Config`, whose main children are:
+
+- `Model`: provider, model name, `base_url`, auth mode, API-key env name,
+  timeout, and provider-specific options.
+- `Skill`: prompt/playbook references or inline content.
+- `MCPServer`: HTTP URL/BasePath/Headers or stdio Command/Args/Env, plus
+  static tool descriptors.
+- `RAGSource`: vector and graph retrieval sources with provider, URL, index,
+  labels, weights, and metadata.
+- `Memory`: short/long/vector/graph memory bindings with provider, URL or
+  bucket, limits, TTL, labels, and metadata.
+- `Loop`: loop name, step/token limits, tool-selection policy, hooks,
+  evaluation, and multi-agent delegation policy.
+- `Endpoint`: structured scheme/host/port/path entries used by health probes
+  and default `agentd` address selection.
 
 The current directives are documented in [Agentfile](agentfile.md).
 
@@ -48,7 +63,7 @@ MODEL vllm local base_url=http://localhost:8000/v1 auth=none
 MODEL llamacpp local base_url=http://localhost:8102/v1 auth=none
 ```
 
-## Global Options Target
+## Target Global Options
 
 The target API includes global defaults:
 

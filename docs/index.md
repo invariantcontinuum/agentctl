@@ -21,6 +21,9 @@ What works today:
 - `agentctl run` / `compose up` from an `Agentfile` (with Docker-like
   `FROM` inheritance) or `AgentCompose` (topological order with
   `/health` gating between services).
+- A canonical `agent.Config` model covering model binding, skills, MCP
+  servers/tools, vector/graph RAG, memory stores, loop policy, hooks,
+  evaluation, multi-agent policy, endpoints, env, labels, and exec.
 - `agentctl ps`, `agent[s] ls / rm / describe`, `agentctl rm -f`,
   `stop`, `start`, `restart`.
 - `agentctl logs --level <L> [--json]`, `trace [--json]`, `inspect`,
@@ -72,4 +75,10 @@ agentctl inspect coder-<suffix>
 agentctl describe coder-<suffix>
 ```
 
-Every `ps`, `logs`, `trace`, `inspect`, and `describe` surface should eventually expose loop internals: current step, RAG sources used, tools called, memory state, guard decisions, and next action.
+Target visibility for `ps`, `logs`, `trace`, `inspect`, and `describe`
+includes loop internals: current step, RAG sources used, tools called, memory
+state, guard decisions, and next action.
+
+Today, `inspect` shows the full stored config/state JSON, `describe` renders
+the most important model/loop/RAG/memory/tool/endpoints fields, `logs` reads
+process output, and `trace` records lifecycle, tool, and health events.

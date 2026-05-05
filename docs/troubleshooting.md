@@ -49,6 +49,19 @@ echo "$XDG_CACHE_HOME"
 
 The state file is under the platform config directory at `agentctl/state.json`.
 
+## `agentctl run` Cannot Find `agentd`
+
+When an Agentfile omits `EXEC`, `agentctl run` injects `agentd` as the default
+runtime. Build and install both binaries for that flow:
+
+```bash
+make build
+sudo install -m 0755 bin/agentctl /usr/local/bin/agentctl
+sudo install -m 0755 bin/agentd   /usr/local/bin/agentd
+```
+
+Alternatively, declare an explicit `EXEC` command in the Agentfile.
+
 ## Release Packaging Fails Locally
 
 Full release packaging needs `rpmbuild`.

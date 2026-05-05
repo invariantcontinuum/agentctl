@@ -39,6 +39,9 @@ Release automation is configured to publish:
 - Release SBOM.
 
 Release publishing is configured in `.github/workflows/release.yml`.
+Current release archives and OS packages install the `agentctl` CLI binary.
+Build from source when you also need the bundled `agentd` runtime installed
+system-wide for Agentfiles that omit `EXEC`.
 
 ## One-Line Install Examples
 

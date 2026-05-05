@@ -6,7 +6,7 @@ have credentials persisted on disk.
 
 ## Catalog
 
-| Provider    | Kind   | Auth              | Endpoint                                        |
+| Provider    | Kind   | Auth              | Default base URL                                |
 | ----------- | ------ | ----------------- | ----------------------------------------------- |
 | `openai`    | hosted | api_key           | https://api.openai.com/v1                       |
 | `anthropic` | hosted | api_key           | https://api.anthropic.com                       |
@@ -26,7 +26,7 @@ stores those keys (and any provider-specific extra env vars like
 agentctl model anthropic auth login                                  # interactive: prompts for endpoint + API key
 agentctl model anthropic auth login --api-key sk-ant-... --no-interactive
 agentctl model openai    auth login --api-key sk-... --endpoint https://api.openai.com/v1
-agentctl model vllm      auth login --endpoint http://localhost:8000/v1   # local: no key needed
+agentctl model vllm      auth login --endpoint http://localhost:8000/v1   # stores the base URL; local providers need no key
 agentctl model anthropic auth status                                 # prints endpoint + masked key
 agentctl model anthropic auth logout                                 # forgets credentials
 agentctl model auth ls                                               # lists every logged-in provider
@@ -40,7 +40,7 @@ API keys are not mirrored back into `Agentfile` manifests. At `run` and
 `compose up` time the CLI auto-injects the stored key under
 `api_key_env` (defaulting to the catalog name — `OPENAI_API_KEY`,
 `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`), overrides `MODEL base_url` from
-the credential record if one is set, and copies any `extra_env`
+the credential record's endpoint value if one is set, and copies any `extra_env`
 switches into the child process environment before exec. The bundled
 `agentd` runtime then reads the value via `os.Getenv`.
 

@@ -6,6 +6,11 @@ and keep the grammar explicit.
 
 Blank lines and `#` comments are ignored.
 
+Every non-`EXEC` directive is parsed with whitespace-separated fields. Put
+structured data in `key=value` options and avoid spaces inside values. `EXEC`
+is the one exception: it is parsed as a JSON string array so command arguments
+remain deterministic.
+
 ## Directives
 
 ```text
@@ -33,8 +38,8 @@ LABEL <key>=<value>
 EXEC ["program", "arg1", "arg2"]
 ```
 
-`EXEC` is a JSON array of strings. This keeps command parsing deterministic
-without adding shell-like quoting rules.
+The parsed result is the canonical `agent.Config` JSON shape used by
+`agentctl run`, persisted runtime config files, and `agentd`.
 
 ## FROM (Docker-like inheritance)
 
@@ -85,6 +90,18 @@ matching transport.
 tool discovery still comes from `tools/list`; the manifest tool list is the
 static policy surface for future validation and presentation.
 
+HTTP MCP servers can carry static request headers:
+
+```text
+MCP search http http://localhost:9001 header.Authorization=Bearer_test
+```
+
+Stdio MCP servers can carry child-process environment values:
+
+```text
+MCP fs stdio npx -y @modelcontextprotocol/server-filesystem /tmp env.ROOT=/tmp
+```
+
 ## MODEL bindings
 
 `MODEL` is a provider binding, not provider-specific client logic. Hosted
@@ -119,6 +136,10 @@ HOOK pre audit http url=http://localhost:9010/pre on_error=halt timeout_sec=5
 EVALUATION max_errors=3 tool_allow_list=search.web,fs.read completion_criteria=task_done,timeout
 MULTI_AGENT enabled=true coordinator=coordinator allowed_roles=coder,reviewer delegation=policy policy.max_parallel=2
 ```
+
+`SKILL content=<text>` inlines a prompt fragment. If `content` is present and
+`path` is not explicitly set, the parser clears the inherited positional path
+so `agentd` uses the inline content directly.
 
 ## Runtime contract
 
